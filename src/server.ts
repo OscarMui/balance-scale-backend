@@ -2,6 +2,9 @@ import * as express from 'express';
 import * as http from 'http';
 import * as WebSocket from 'ws';
 
+// Important constants
+const GAME_LIMIT = 2;
+
 const app = express();
 
 //initialize a simple http server
@@ -11,18 +14,32 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ 
     server,
     path: "/game",
- });
+});
+
+let participants : WebSocket[] = [];
+
+const sendMsg = (ws: WebSocket, msg : Object) => {
+    ws.send(JSON.stringify(msg))
+}
 
 wss.on('connection', (ws: WebSocket) => {
     // internal ID used for logging purposes only
     const id = (new Date()).getTime().toString();
 
-    console.log(`User ${id} connected`);
-    // Start sending ping messages every 5 seconds
-    let pingTimeout : NodeJS.Timeout;
+    console.log(`User ${id} connected, ${wss.clients.size} total connections`);
 
-    const sendPing = () => {
+    //if number of clients, including this new client, is too much we terminate this new connection.
+    // if(wss.clients.size > GAME_LIMIT){
+    //     console.log('Maximum number of clients reached, terminating connection with ${id}...');
+    //     ws.terminate();
+    //     return;
+    // }
+
+    // Send a pong, then initialise a timeout of 10 seconds.
+    let pingTimeout : NodeJS.Timeout;
+    const waitPing = () => {
         ws.pong();
+        //a timeout s.t. if client does not respond in 10 seconds, we terminate the connection
         pingTimeout = setTimeout(() => {
             console.log(`No ping received, terminating connection with ${id}...`);
             ws.terminate();
@@ -32,37 +49,62 @@ wss.on('connection', (ws: WebSocket) => {
     ws.on('ping', () => {
         // console.log('Received ping message from client');
         clearTimeout(pingTimeout);
-        sendPing();
+        waitPing();
     });
 
-    sendPing();
+    waitPing();
 
     //connection is up, let's add a simple simple event
     ws.on('message', (message: string) => {
-
         //log the received message and send it back to the client
-        console.log(`received from ${id}: %s`, message);
+        // console.log(`received from ${id}: %s`, message);
 
-        const broadcastRegex = /^broadcast\:/;
+        try{
+            const req = JSON.parse(message);
 
-        if (broadcastRegex.test(message)) {
-            message = message.toString().replace(broadcastRegex, '');
-
-            //send back the message to the other clients
-            wss.clients
-                .forEach(client => {
-                    if (client != ws) {
-                        client.send(`Hello, broadcast message -> ${message}`);
-                    }    
+            if(req.method === "joinGame"){
+                //if too much players are playing give error and just do nothing
+                if(participants.length >= GAME_LIMIT){
+                    console.log('Maximum number of participants reached');
+                    sendMsg(ws,{
+                        method: "joinGame",
+                        result: "error",
+                    });
+                    return;
+                }
+                participants.push(ws);
+                console.log(`${id} joined the game registered, total ${participants.length} participants.`)
+                sendMsg(ws,{
+                    method: "joinGame",
+                    result: "success",
                 });
-            
-        } else {
-            ws.send(`Hello, you sent -> ${message}`);
+            }else{
+                console.error("Error bad method from message", message);
+            }
+        }catch(e){
+            console.error("Error with decoding message: ", message);
         }
+        // const broadcastRegex = /^broadcast\:/;
+
+        // if (broadcastRegex.test(message)) {
+        //     message = message.toString().replace(broadcastRegex, '');
+
+        //     //send back the message to the other clients
+        //     wss.clients
+        //         .forEach(client => {
+        //             if (client != ws) {
+        //                 client.send(`Hello, broadcast message -> ${message}`);
+        //             }    
+        //         });
+            
+        // } else {
+        //     ws.send(`Hello, you sent -> ${message}`);
+        // }
     });
 
     ws.on('close', () => {
         console.log(`User ${id} disconnected`);
+        participants = participants.filter((p)=>p!==ws);
     });
 
     //send immediatly a feedback to the incoming connection    
