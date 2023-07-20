@@ -8,15 +8,40 @@ const app = express();
 const server = http.createServer(app);
 
 //initialize the WebSocket server instance
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ 
+    server,
+    path: "/game",
+ });
 
 wss.on('connection', (ws: WebSocket) => {
+    // internal ID used for logging purposes only
+    const id = (new Date()).getTime().toString();
+
+    console.log(`User ${id} connected`);
+    // Start sending ping messages every 5 seconds
+    let pingTimeout : NodeJS.Timeout;
+
+    const sendPing = () => {
+        ws.pong();
+        pingTimeout = setTimeout(() => {
+            console.log(`No ping received, terminating connection with ${id}...`);
+            ws.terminate();
+        }, 10000);
+    }
+
+    ws.on('ping', () => {
+        // console.log('Received ping message from client');
+        clearTimeout(pingTimeout);
+        sendPing();
+    });
+
+    sendPing();
 
     //connection is up, let's add a simple simple event
     ws.on('message', (message: string) => {
 
         //log the received message and send it back to the client
-        console.log('received: %s', message);
+        console.log(`received from ${id}: %s`, message);
 
         const broadcastRegex = /^broadcast\:/;
 
@@ -34,6 +59,10 @@ wss.on('connection', (ws: WebSocket) => {
         } else {
             ws.send(`Hello, you sent -> ${message}`);
         }
+    });
+
+    ws.on('close', () => {
+        console.log(`User ${id} disconnected`);
     });
 
     //send immediatly a feedback to the incoming connection    
