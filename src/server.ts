@@ -1,6 +1,8 @@
 import * as express from 'express';
 import * as http from 'http';
 import * as WebSocket from 'ws';
+import { v4 as uuidv4 } from 'uuid';
+import './interface';
 
 // Important constants
 const GAME_LIMIT = 2;
@@ -11,25 +13,39 @@ const app = express();
 const server = http.createServer(app);
 
 //initialize the WebSocket server instance
-const wss = new WebSocket.Server({ 
+const wsServer = new WebSocket.Server({ 
     server,
     path: "/game",
 });
 
-let participants : WebSocket[] = [];
+let participants : [WebSocket, Participant][] = [];
 
-const sendMsg = (ws: WebSocket, msg : Object) => {
+const getParticipantsWs = () => {
+    return participants.map(([ws,p])=>ws)
+}
+
+const getParticipantsP = () => {
+    return participants.map(([ws,p])=>p)
+}
+
+const sendMsg = (ws: WebSocket, msg : Res) => {
     ws.send(JSON.stringify(msg))
 }
 
-wss.on('connection', (ws: WebSocket) => {
-    // internal ID used for logging purposes only
-    const id = (new Date()).getTime().toString();
+const broadcastMsg = (wss: WebSocket[], msg : Res) => {
+    wss.forEach((ws)=>{
+        ws.send(JSON.stringify(msg))
+    })
+}
 
-    console.log(`User ${id} connected, ${wss.clients.size} total connections`);
+wsServer.on('connection', (ws: WebSocket) => {
+    // internal ID used for logging purposes only
+    const id = uuidv4();
+
+    console.log(`User ${id} connected, ${wsServer.clients.size} total connections`);
 
     //if number of clients, including this new client, is too much we terminate this new connection.
-    // if(wss.clients.size > GAME_LIMIT){
+    // if(wsServer.clients.size > GAME_LIMIT){
     //     console.log('Maximum number of clients reached, terminating connection with ${id}...');
     //     ws.terminate();
     //     return;
@@ -60,7 +76,7 @@ wss.on('connection', (ws: WebSocket) => {
         // console.log(`received from ${id}: %s`, message);
 
         try{
-            const req = JSON.parse(message);
+            const req : Req = JSON.parse(message);
 
             if(req.method === "joinGame"){
                 //if too much players are playing give error and just do nothing
@@ -69,20 +85,42 @@ wss.on('connection', (ws: WebSocket) => {
                     sendMsg(ws,{
                         method: "joinGame",
                         result: "error",
+                        errorMsg: "Maximum number of participants reached",
                     });
                     return;
                 }
-                participants.push(ws);
+                participants.push([ws,{
+                    id: id,
+                    nickname: req.nickname
+                },]);
                 console.log(`${id} joined the game registered, total ${participants.length} participants.`)
                 sendMsg(ws,{
                     method: "joinGame",
                     result: "success",
+                    participantsCount: participants.length,
                 });
+                if(participants.length === GAME_LIMIT){
+                    broadcastMsg(getParticipantsWs(),{
+                        method: "startGame",
+                        result: "success",
+                        participants: getParticipantsP(),
+                    });
+                }
             }else{
                 console.error("Error bad method from message", message);
+                sendMsg(ws,{
+                    method: "joinGame",
+                    result: "error",
+                    errorMsg: "Bad method",
+                });
             }
         }catch(e){
             console.error("Error with decoding message: ", message);
+            sendMsg(ws,{
+                method: "joinGame",
+                result: "error",
+                errorMsg: "Cannot decode message",
+            });
         }
         // const broadcastRegex = /^broadcast\:/;
 
@@ -90,7 +128,7 @@ wss.on('connection', (ws: WebSocket) => {
         //     message = message.toString().replace(broadcastRegex, '');
 
         //     //send back the message to the other clients
-        //     wss.clients
+        //     wsServer.clients
         //         .forEach(client => {
         //             if (client != ws) {
         //                 client.send(`Hello, broadcast message -> ${message}`);
@@ -104,7 +142,7 @@ wss.on('connection', (ws: WebSocket) => {
 
     ws.on('close', () => {
         console.log(`User ${id} disconnected`);
-        participants = participants.filter((p)=>p!==ws);
+        participants = participants.filter(([pws,p])=>pws!==ws);
     });
 
     //send immediatly a feedback to the incoming connection    
