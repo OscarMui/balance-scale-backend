@@ -2,10 +2,11 @@ import * as express from 'express';
 import * as http from 'http';
 import * as WebSocket from 'ws';
 import { v4 as uuidv4 } from 'uuid';
-import './interface';
+import {Participant, Req} from './interface';
 
 // Important constants
 const GAME_LIMIT = 2;
+const DEAD_LIMIT = -10;
 
 const app = express();
 
@@ -18,24 +19,78 @@ const wsServer = new WebSocket.Server({
     path: "/game",
 });
 
-let participants : [WebSocket, Participant][] = [];
+// Important variables
+let participants : Participant[] = [];
 
-const getParticipantsWs = () => {
-    return participants.map(([ws,p])=>ws)
+const getParticipantsSocket = () => {
+    return participants.map((p)=>p.socket)
 }
 
-const getParticipantsP = () => {
-    return participants.map(([ws,p])=>p)
+const getParticipantsInfo = () => {
+    return participants.map((p)=>{return {
+        id: p.id, 
+        nickname: p.nickname, 
+        guesses: p.guesses, 
+        score: p.score, 
+        isDead: p.isDead
+    }})
 }
 
-const sendMsg = (ws: WebSocket, msg : Res) => {
+//send a message to a websocket, id is optional and is for debugging only
+const sendMsg = (ws: WebSocket, msg : Object, id? : string) => {
+    if(id) console.log(`sent to ${id}:`,msg);
+    else console.log("sent: ",msg);
+    
     ws.send(JSON.stringify(msg))
 }
 
-const broadcastMsg = (wss: WebSocket[], msg : Res) => {
+//send a message to multiple websockets
+const broadcastMsg = (wss: WebSocket[], msg : Object) => {
+    console.log("sent: ",msg);
     wss.forEach((ws)=>{
         ws.send(JSON.stringify(msg))
     })
+}
+
+function recvMsg(ws: WebSocket): Promise<Object> {
+    return new Promise((resolve, reject) => {
+        function onMessage(res: WebSocket.MessageEvent) {
+            ws.removeEventListener('message', onMessage);
+            resolve(JSON.parse(res.data.toString()));
+        }
+    
+        ws.addEventListener('message', onMessage);
+    
+        ws.addEventListener('close', () => {
+            reject(new Error('WebSocket closed'));
+        });
+    
+        ws.addEventListener('error', (event : WebSocket.ErrorEvent) => {
+            reject(new Error(`WebSocket error: ${event}`));
+        });
+    });
+}
+
+//whole game process
+const game = async () => {
+    let round = 0;
+    let gameEnd = false;
+
+    while(!gameEnd){
+        broadcastMsg(getParticipantsSocket(),{
+            event: "roundStart",
+            participants: getParticipantsInfo(),
+            round: round,
+        });
+        const ress = await Promise.all(getParticipantsSocket().map((ws)=>recvMsg(ws)))
+        console.log("all res received",ress);
+        // ress.forEach((res)=>{
+        //     const p = participants.filter((p)=>p.socket === ws)
+        // })
+        
+
+        round += 1;
+    }
 }
 
 wsServer.on('connection', (ws: WebSocket) => {
@@ -43,13 +98,6 @@ wsServer.on('connection', (ws: WebSocket) => {
     const id = uuidv4();
 
     console.log(`User ${id} connected, ${wsServer.clients.size} total connections`);
-
-    //if number of clients, including this new client, is too much we terminate this new connection.
-    // if(wsServer.clients.size > GAME_LIMIT){
-    //     console.log('Maximum number of clients reached, terminating connection with ${id}...');
-    //     ws.terminate();
-    //     return;
-    // }
 
     // Send a pong, then initialise a timeout of 10 seconds.
     let pingTimeout : NodeJS.Timeout;
@@ -70,54 +118,48 @@ wsServer.on('connection', (ws: WebSocket) => {
 
     waitPing();
 
-    //connection is up, let's add a simple simple event
     ws.on('message', (message: string) => {
         //log the received message and send it back to the client
-        // console.log(`received from ${id}: %s`, message);
+        
 
         try{
             const req : Req = JSON.parse(message);
-
+            console.log(`received from ${id}:`, req);
             if(req.method === "joinGame"){
                 //if too much players are playing give error and just do nothing
                 if(participants.length >= GAME_LIMIT){
                     console.log('Maximum number of participants reached');
                     sendMsg(ws,{
-                        method: "joinGame",
                         result: "error",
                         errorMsg: "Maximum number of participants reached",
-                    });
+                    },id);
                     return;
                 }
-                participants.push([ws,{
+                participants.push({
                     id: id,
-                    nickname: req.nickname
-                },]);
-                console.log(`${id} joined the game registered, total ${participants.length} participants.`)
+                    nickname: req.nickname,
+                    socket: ws,
+                    guesses: [],
+                    score: 0,
+                    isDead: false,
+                });
                 sendMsg(ws,{
-                    method: "joinGame",
                     result: "success",
                     participantsCount: participants.length,
-                });
+                    id: id,
+                },id);
                 if(participants.length === GAME_LIMIT){
-                    broadcastMsg(getParticipantsWs(),{
-                        method: "startGame",
-                        result: "success",
-                        participants: getParticipantsP(),
-                    });
+                    game();
                 }
             }else{
-                console.error("Error bad method from message", message);
-                sendMsg(ws,{
-                    method: "joinGame",
-                    result: "error",
-                    errorMsg: "Bad method",
-                });
+                //maybe received by the game method
+                // sendMsg(ws,{
+                //     result: "error",
+                //     errorMsg: "Bad method",
+                // });
             }
         }catch(e){
-            console.error("Error with decoding message: ", message);
             sendMsg(ws,{
-                method: "joinGame",
                 result: "error",
                 errorMsg: "Cannot decode message",
             });
@@ -142,11 +184,11 @@ wsServer.on('connection', (ws: WebSocket) => {
 
     ws.on('close', () => {
         console.log(`User ${id} disconnected`);
-        participants = participants.filter(([pws,p])=>pws!==ws);
+        participants = participants.filter((p)=>p.socket!==ws);
     });
 
-    //send immediatly a feedback to the incoming connection    
-    ws.send('Hi there, I am a WebSocket server');
+    //TODO: send immediatly a feedback to the incoming connection    
+    // ws.send('Hi there, I am a WebSocket server');
 });
 
 //start our server
