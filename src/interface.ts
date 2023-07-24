@@ -14,6 +14,12 @@ interface Req {
     [key: string]: any;
 }
 
+// interface SubmitGuessReq {
+//     method: "submitNumber",
+//     id: string,
+//     guess: number,
+// }
+
 export {Participant, Req};
 // interface Res {
 //     method: string,

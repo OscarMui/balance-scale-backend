@@ -5,8 +5,8 @@ import { v4 as uuidv4 } from 'uuid';
 import {Participant, Req} from './interface';
 
 // Important constants
-const GAME_LIMIT = 2;
-const DEAD_LIMIT = -10;
+const GAME_LIMIT = 3;
+const DEAD_LIMIT = -3;
 
 const app = express();
 
@@ -22,8 +22,9 @@ const wsServer = new WebSocket.Server({
 // Important variables
 let participants : Participant[] = [];
 
-const getParticipantsSocket = () => {
-    return participants.map((p)=>p.socket)
+const getParticipantsSocket = (filterFn? : (p: Participant) => boolean) => {
+    if(filterFn) return  participants.filter(filterFn).map((p)=>p.socket)
+    else return participants.map((p)=>p.socket)
 }
 
 const getParticipantsInfo = () => {
@@ -46,7 +47,7 @@ const sendMsg = (ws: WebSocket, msg : Object, id? : string) => {
 
 //send a message to multiple websockets
 const broadcastMsg = (wss: WebSocket[], msg : Object) => {
-    console.log("sent: ",msg);
+    console.log("broadcasted: ",msg);
     wss.forEach((ws)=>{
         ws.send(JSON.stringify(msg))
     })
@@ -56,6 +57,10 @@ function recvMsg(ws: WebSocket): Promise<Object> {
     return new Promise((resolve, reject) => {
         function onMessage(res: WebSocket.MessageEvent) {
             ws.removeEventListener('message', onMessage);
+            console.log("received: ",res.data.toString());
+            sendMsg(ws,{
+                result: "success",
+            });
             resolve(JSON.parse(res.data.toString()));
         }
     
@@ -71,26 +76,88 @@ function recvMsg(ws: WebSocket): Promise<Object> {
     });
 }
 
+const assert = (condition : boolean, message = "Assertion failed") => {
+    if (!condition) {
+      throw new Error(message);
+    }
+};
+
 //whole game process
 const game = async () => {
     let round = 0;
-    let gameEnd = false;
-
-    while(!gameEnd){
+    let targets : number[] = [];
+    let prevWinners : string[] = [];
+    while(participants.filter((p)=>!p.isDead).length > 1){
         broadcastMsg(getParticipantsSocket(),{
-            event: "roundStart",
+            event: "gameInfo",
             participants: getParticipantsInfo(),
             round: round,
+            gameEnded: participants.filter((p)=>!p.isDead).length === 1,
+            targets: targets,
+            prevWinners: prevWinners,
         });
-        const ress = await Promise.all(getParticipantsSocket().map((ws)=>recvMsg(ws)))
-        console.log("all res received",ress);
-        // ress.forEach((res)=>{
-        //     const p = participants.filter((p)=>p.socket === ws)
-        // })
+        // get one message from every participant that is alive
+        const requests = await Promise.all(getParticipantsSocket((p : Participant)=>!p.isDead).map((ws)=>recvMsg(ws)))
         
+        const reqs = requests.map((request)=>{ return {
+            //@ts-ignore
+            method: request.method,
+            //@ts-ignore
+            id: request.id,
+            //@ts-ignore
+            guess: Number(request.guess),
+        }})
 
+
+        console.log("all res received",reqs);
+
+        const target = reqs.map((req)=>req.guess).reduce((xs,x)=>x+xs,0) / reqs.length * 0.8;
+
+        //helper function
+        const calDiff = (x: number) => Math.abs(x - target)
+
+        let winners : string[] = [reqs[0].id];
+        let winnersDiff = calDiff(reqs[0].guess); 
+
+        reqs.forEach((req)=>{
+            //get corresponding participant object using the id
+            const p = participants.filter((p)=>p.id === req.id)[0];
+            assert(!p.isDead);
+            p.guesses.push(req.guess);
+        })
+        targets.push(target);
+
+        for(let i=1;i<reqs.length;i++){
+            const req = reqs[i];
+            //update the winners array
+            const diff = calDiff(req.guess);
+            if(diff === winnersDiff) winners.push(req.id);
+            else if(diff < winnersDiff){
+                winners = [req.id];
+                winnersDiff = diff;
+            }
+        }
+
+        //modify score and isDead
+        participants.forEach((p)=>{
+            //if alive and not win: -1 score
+            if(!p.isDead && !winners.includes(p.id)){
+                p.score -= 1;
+            }
+
+            // dead if DEAD_LIMIT score or worse
+            if(p.score <= DEAD_LIMIT){
+                p.score = DEAD_LIMIT; //display -10 instead of -11 or sth
+                p.isDead = true;
+            }
+        })
+
+        prevWinners = winners;
+
+        console.log(winners);
         round += 1;
     }
+    console.log("game ended");
 }
 
 wsServer.on('connection', (ws: WebSocket) => {

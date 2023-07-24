@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "./node_modules/.bin/tsc && node ./dist/server/server.js",
-    "build": "./node_modules/.bin/tsc"
+    "build": "./node_modules/.bin/tsc",
+    "serve": "node ./dist/server/server.js"
   },
   "author": "KidProf",
   "license": "ISC",
