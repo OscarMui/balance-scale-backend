@@ -157,6 +157,15 @@ const game = async () => {
         console.log(winners);
         round += 1;
     }
+    //broadcast one last time
+    broadcastMsg(getParticipantsSocket(),{
+        event: "gameInfo",
+        participants: getParticipantsInfo(),
+        round: round,
+        gameEnded: participants.filter((p)=>!p.isDead).length === 1,
+        targets: targets,
+        prevWinners: prevWinners,
+    });
     console.log("game ended");
 }
 
