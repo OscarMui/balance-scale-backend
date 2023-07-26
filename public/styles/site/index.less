@@ -1,0 +1,127 @@
+.my-box{
+    border: 2px solid #AAA;
+    background-color: @bg-color;
+    margin-top: 1rem;
+    .header{ //make it overlap with the border
+        font-family: 'Noto Serif TC', sans-serif;
+        font-weight: 800;
+        position: relative;
+        bottom: 1rem;
+        //background-color: @sharp-color-blue;
+        color: #000;
+        width: fit-content;
+        width: -moz-fit-content;
+        padding: 10px 10px 10px 10px;
+        border-radius: 1rem;
+        border: 2px solid #AAA;
+        height: 53px;
+        a{
+            color: #000;
+        }
+        img{
+            position: relative;
+            bottom: 3px;
+        }
+    }
+    .container{
+        margin: 0 1rem 1rem 1rem;
+        padding-right: 2rem;
+    }
+    a{
+        color: #98CD85;
+    }
+
+    a.live{
+        color: yellow;;
+    }
+    
+    a.read-more{
+        color: #AAA;
+    }
+}
+
+.announcementsHeader{
+    background-color: #ff93ac;
+}
+.discordHeader{
+    background-color: #ffb366;
+}
+
+.announcementsHeaderYellow{
+    background-color: #DAD602;
+}
+
+.eventsHeader{
+    background-color: @sharp-color-blue;
+}
+
+.minionsHeader{
+    background-color: @sharp-color-green;
+}
+
+.minionsCostHeader{
+    background-color: #B97AC5;
+}
+
+#minionsInput{
+    input, select{
+        background-color: @bg-color-input;
+        color: #FFF;
+    }
+    .form-control{
+        width: fit-content;
+        width: -moz-fit-content;
+        display: inline-block;
+    }
+    .form-control:focus{
+        border-color: #FFF;
+        box-shadow: 0 0 0 0.2rem rgba(209,208,191,.25);
+    }
+    #overallOfflineTime{
+        width: 70px;
+    }
+    #overallProfileName{
+        width: 200px;
+    }
+    #overallSettings{
+        background-color: @sharp-color-green;
+        color: #000;
+    }
+    #overallSettings:hover{
+        background-color: #A8DD95;
+    }
+    #overallSettings:focus{
+        box-shadow: 0 0 0 0.3rem rgba(240,240,240,.25)
+    }
+}
+
+#minionsIndexTable{
+    @media (max-width: 768px) { //xs, sm
+        .row{
+            min-height: 60px;
+        }
+    }
+    @media (min-width: 768px) { //md, lg, xl
+        .row{
+            min-height: 45px;
+        }
+    }
+    @media (max-width: 500px) { //when width of column is smaller than 60px
+        .totalProfitTitleRightAlign{
+            text-align: right;
+        }
+    }
+    @media (min-width: 500px) { //normal case
+        .totalProfitRightAlign{
+            width: 100px;
+        }
+    }
+    img{
+        width: 35px;
+        max-width: 100%;
+    }
+    .p-height-fix{
+        bottom: -2px;
+        position: relative;
+    }
+}

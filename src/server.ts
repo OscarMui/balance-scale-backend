@@ -2,7 +2,8 @@ import * as express from 'express';
 import * as http from 'http';
 import * as WebSocket from 'ws';
 import Socket from './game/socket';
-// import * from "less-middleware";
+
+import lessMiddleware = require('less-middleware');
 
 const app = express();
 
@@ -27,11 +28,11 @@ app.get('/',(req,res)=>{res.render("index");});
 
 //app.set, app.use
 app.set("view engine","pug");
-app.set('views','src/templates/views/');
+app.set('views','templates/views/');
 
 //css, js
-// app.use(lessMiddleware('dist'));
-// app.use(express.static('dist'));
+app.use(lessMiddleware('public'));
+app.use(express.static('public'));
 
 //start our server
 server.listen(process.env.PORT || 8999, () => {
