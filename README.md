@@ -8,7 +8,7 @@ Written in TypeScript using the ExpressJS framework. It heavily makes use of  fo
 
 ## Installation
 
-Requires Node.js and npm
+Requires Node.js, npm, and tsc. (Install tsc by `npm install -g typescript`)
 
 ```bash
 npm install
@@ -40,7 +40,7 @@ yarn start
 
 Player limit: 5
 
-Time limit: 3 minutes per round (no round limit)
+Time limit: 3 minutes per round (NOT IMPLEMENTED) (no round limit) 
 
 All players start with 0 points.
 
