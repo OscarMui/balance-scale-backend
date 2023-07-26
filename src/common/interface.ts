@@ -1,6 +1,6 @@
 import {WebSocket} from 'ws';
 
-interface Participant {
+export interface Participant {
     id: string,
     nickname: string,
     socket: WebSocket,
@@ -9,28 +9,27 @@ interface Participant {
     isDead: boolean,
 }
 
-interface Req {
+export interface Req {
     method: string,
     [key: string]: any;
 }
 
-// interface SubmitGuessReq {
+// export interface SubmitGuessReq {
 //     method: "submitNumber",
 //     id: string,
 //     guess: number,
 // }
 
-export {Participant, Req};
-// interface Res {
+// export interface Res {
 //     method: string,
 //     result: "success" | "error",
 //     errorMsg?: string,
 //     [key: string]: any;
 // }
-// interface JoinGameReq extends Req {
+// export interface JoinGameReq extends Req {
 //     nickname: string,
 // }
 
-// interface JoinGameRes extends Res {
+// export interface JoinGameRes extends Res {
 //     participantsCount: number,
 // }
