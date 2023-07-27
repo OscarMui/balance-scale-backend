@@ -19,7 +19,10 @@ const broadcastMsg = (wss: WebSocket[], msg : Object) => {
 const recvMsg = (ws: WebSocket) : Promise<Object> => {
     return new Promise((resolve, reject) => {
         function onMessage(res: WebSocket.MessageEvent) {
+            //remove ALL established listeners 
             ws.removeEventListener('message', onMessage);
+            ws.removeEventListener('close', onClose);
+            ws.removeEventListener('error', onError);
             console.log("received: ",res.data.toString());
             sendMsg(ws,{
                 result: "success",
@@ -28,14 +31,18 @@ const recvMsg = (ws: WebSocket) : Promise<Object> => {
         }
     
         ws.addEventListener('message', onMessage);
-    
-        ws.addEventListener('close', () => {
+        
+        const onClose = () => {
             reject(new Error('WebSocket closed'));
-        });
+        }
+
+        ws.addEventListener('close', onClose);
     
-        ws.addEventListener('error', (event : WebSocket.ErrorEvent) => {
+        const onError = (event : WebSocket.ErrorEvent) => {
             reject(new Error(`WebSocket error: ${event}`));
-        });
+        }
+
+        ws.addEventListener('error', onError);
     });
 }
 

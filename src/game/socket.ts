@@ -72,7 +72,7 @@ class Socket {
                         }
                         sendMsg(ws,{
                             result: "success",
-                            participantsCount: this.game.getParticipantsCount(),
+                            participantsCount: this.game.getParticipantsCount()+1,
                         },id);
                         this.game.addParticipantByInfo({
                             id: id,
