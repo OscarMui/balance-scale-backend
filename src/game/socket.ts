@@ -53,6 +53,10 @@ class Socket {
                     console.log(`received from ${id}:`, req);
                     if(req.method === "joinGame"){
                         //TODO: allow multiple games and multiple waiting rooms
+                        if(this.game.isEnded()){
+                            //start a new game
+                            this.game = new Game();
+                        }
                         if(this.game.isInProgress()){
                             console.log('Game in progress, please try again later');
                             sendMsg(ws,{
@@ -110,11 +114,9 @@ class Socket {
                 // }
             });
     
-            ws.on('close', () => {
-                console.log(`User ${id} disconnected`);
-                //TODO
-                // participants = participants.filter((p)=>p.socket!==ws);
-            });
+            // ws.on('close', () => {
+            //     console.log(`User ${id} disconnected`);
+            // });
         });
     }
     

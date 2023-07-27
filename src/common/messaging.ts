@@ -18,28 +18,51 @@ const broadcastMsg = (wss: WebSocket[], msg : Object) => {
 //wait for a message
 const recvMsg = (ws: WebSocket) : Promise<Object> => {
     return new Promise((resolve, reject) => {
-        function onMessage(res: WebSocket.MessageEvent) {
+        function onMessage(event: WebSocket.MessageEvent) {
             //remove ALL established listeners 
             ws.removeEventListener('message', onMessage);
             ws.removeEventListener('close', onClose);
             ws.removeEventListener('error', onError);
-            console.log("received: ",res.data.toString());
-            sendMsg(ws,{
-                result: "success",
-            });
-            resolve(JSON.parse(res.data.toString()));
+            console.log("received: ",event.data.toString());
+            try{
+                sendMsg(ws,{
+                    result: "success",
+                });
+
+                resolve({
+                    socket: event.target,
+                    ...JSON.parse(event.data.toString())
+                });
+            }catch(e){
+                reject({
+                    socket: event.target,
+                })
+            }
+            
         }
     
         ws.addEventListener('message', onMessage);
         
-        const onClose = () => {
-            reject(new Error('WebSocket closed'));
+        const onClose = (event: WebSocket.CloseEvent) => {
+            console.log("onClose fired in messaging.ts")
+            ws.removeEventListener('message', onMessage);
+            ws.removeEventListener('close', onClose);
+            ws.removeEventListener('error', onError);
+            reject({
+                socket: event.target,
+            })
         }
 
         ws.addEventListener('close', onClose);
     
         const onError = (event : WebSocket.ErrorEvent) => {
-            reject(new Error(`WebSocket error: ${event}`));
+            console.log("onError fired in messaging.ts")
+            ws.removeEventListener('message', onMessage);
+            ws.removeEventListener('close', onClose);
+            ws.removeEventListener('error', onError);
+            reject({
+                socket: event.target,
+            })
         }
 
         ws.addEventListener('error', onError);

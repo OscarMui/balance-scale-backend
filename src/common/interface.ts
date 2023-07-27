@@ -5,6 +5,7 @@ export interface ParticipantInfo {
     nickname: string,
     score: number,
     isDead: boolean,
+    disconnected: boolean,
 }
 
 export interface Participant extends ParticipantInfo{

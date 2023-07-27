@@ -8,6 +8,8 @@ class Game {
     private participants : Participant[] = [];
     private inProgress: boolean = false;
     private gameEvents : GameEvent[] = [];
+    //TODO: put justDiedParticipants back to local variable of game body loop
+    private justDiedParticipants : string[] = [];
 
     constructor(){}
     
@@ -20,7 +22,11 @@ class Game {
             socket: socket,
             score: 0,
             isDead: false,
+            disconnected: false,
         });
+
+        socket.addEventListener('close', this.onClose);
+        socket.addEventListener('error', this.onError);
 
         if(this.getParticipantsCount()==PARTICIPANTS_PER_GAME){
             this.inProgress = true;
@@ -30,11 +36,11 @@ class Game {
 
     isInProgress = () => this.inProgress;
 
-    isEnded = () => this.getAliveCount() <= 1;
+    isEnded = () => this.inProgress && this.getAliveCount() <= 1;
 
     private getParticipantsSocket = (filterFn? : (p: Participant) => boolean) => {
-        if(filterFn) return  this.participants.filter(filterFn).map((p)=>p.socket)
-        else return this.participants.map((p)=>p.socket)
+        if(filterFn) return  this.participants.filter(filterFn).filter((p)=>!p.disconnected).map((p)=>p.socket)
+        else return this.participants.filter((p)=>!p.disconnected).map((p)=>p.socket)
     }
 
     private getParticipantsInfo = () => {
@@ -53,6 +59,21 @@ class Game {
         this.gameEvents.push(ge);
         broadcastMsg(sockets,ge);
     }
+
+    private addAllListeners = () => {
+        this.getParticipantsSocket().forEach((ws)=>{
+            ws.addListener('close', this.onClose);
+            ws.addListener('error', this.onError);
+        })
+    }
+
+    private removeAllListeners = () => {
+        this.getParticipantsSocket().forEach((ws)=>{
+            ws.removeListener('close', this.onClose);
+            ws.removeListener('error', this.onError);
+        })
+    }
+
     private gameBody = async () => {
         let round = 0;
         this.addBroadcastGameEvent({
@@ -63,21 +84,44 @@ class Game {
             aliveCount: this.getAliveCount(),
         } as GameStart);
         while(!this.isEnded()){
-            let justDiedParticipants : string[] = []
+            this.justDiedParticipants = [];
             let justAppliedRules = new Set<number>()
 
+            //TODO: Notify people when a player disconnected during the turn
+            //TODO: Allow players to modify their choice during the turn
+            //TODO: Three-minute timeout
             // get one message from every participant that is alive
-            const requests = await Promise.all(this.getParticipantsSocket((p : Participant)=>!p.isDead).map((ws)=>recvMsg(ws)))
+            const requests = await Promise.allSettled(this.getParticipantsSocket((p : Participant)=>!p.isDead).map((ws)=>recvMsg(ws)))
             
-            const reqs = requests.map((request)=>{ return {
-                //@ts-ignore
-                method: request.method,
-                //@ts-ignore
-                id: request.id,
-                //@ts-ignore
-                guess: Number(request.guess),
-            }})
+            //stop all the events from interfering the critical section
+            this.removeAllListeners()
 
+            let reqs : {id: string, guess: number}[] = []
+            for(let i=0;i<requests.length;i++){
+                const request = requests[i];
+                if(request.status==="fulfilled"){
+                    try{
+                        //@ts-ignore
+                        assert(request.value.method==="submitGuess")
+
+                        reqs.push({
+                            //@ts-ignore
+                            id: request.value.id,
+                            //@ts-ignore
+                            guess: Number(request.value.guess),
+                        })
+                    }catch(e){
+                        //@ts-ignore
+                        if(request.value.socket.readyState === WebSocket.CLOSED)
+                            //@ts-ignore
+                            request.value.socket.close();
+                    }
+                }else{
+                    assert(request.status==="rejected");
+                    if(request.reason.socket.readyState === WebSocket.CLOSED)
+                        request.reason.socket.close();
+                }
+            }
 
             console.log("all res received",reqs);
 
@@ -137,7 +181,7 @@ class Game {
                 if(p.score <= DEAD_LIMIT){
                     p.score = DEAD_LIMIT; //display -10 instead of -11 or sth
                     p.isDead = true;
-                    justDiedParticipants.push(p.id)
+                    this.justDiedParticipants.push(p.id)
                 }
             })
 
@@ -153,6 +197,9 @@ class Game {
 
             round += 1;
 
+            //resume all the events
+            this.addAllListeners();
+
             this.addBroadcastGameEvent({
                 event: "gameInfo",
                 participants: participantGuesses,
@@ -161,14 +208,38 @@ class Game {
                 aliveCount: this.getAliveCount(),
                 target: target,
                 winners: winners,
-                justDiedParticipants: justDiedParticipants,
+                justDiedParticipants: this.justDiedParticipants,
                 justAppliedRules: [...justAppliedRules],
             } as GameInfo);
         }
-        //broadcast one last time
-        
         console.log("game ended");
     }
+
+    //disconnection handling
+    private onClose = (event: WebSocket.CloseEvent) => {
+        console.log("onClose fired in game.ts")
+        //instead of throwing an error, just treat the client as game over
+        const ws = event.target;
+        const participant = this.participants.filter((p)=>{
+            p.socket === ws
+        });
+        if(participant.length > 0){
+            participant[0].disconnected = true;
+            participant[0].isDead = true;
+            //TODO: put justDiedParticipants back to local variable of game body loop
+            this.justDiedParticipants.push(participant[0].id)
+        }
+        
+    }
+
+    private onError = (event: WebSocket.ErrorEvent) => {
+        console.log("onError fired in game.ts")
+        //instead of throwing an error, close connection 
+        if(event.target.readyState === WebSocket.CLOSED)
+            event.target.close();
+    }
+
+    
 }
 
 export default Game;
