@@ -22,7 +22,7 @@ class Game {
             socket: socket,
             score: 0,
             isDead: false,
-            disconnected: false,
+            disconnected: false, //disconnected only affects whether info will be sent to that player after they are dead
         });
 
         socket.addEventListener('close', this.onClose);
@@ -48,7 +48,8 @@ class Game {
             id: p.id, 
             nickname: p.nickname, 
             score: p.score, 
-            isDead: p.isDead
+            isDead: p.isDead,
+            disconnected: p.disconnected,
         } as ParticipantInfo})
     }
 
@@ -60,19 +61,19 @@ class Game {
         broadcastMsg(sockets,ge);
     }
 
-    private addAllListeners = () => {
-        this.getParticipantsSocket().forEach((ws)=>{
-            ws.addListener('close', this.onClose);
-            ws.addListener('error', this.onError);
-        })
-    }
+    // private addAllListeners = () => {
+    //     this.getParticipantsSocket().forEach((ws)=>{
+    //         ws.addListener('close', this.onClose);
+    //         ws.addListener('error', this.onError);
+    //     })
+    // }
 
-    private removeAllListeners = () => {
-        this.getParticipantsSocket().forEach((ws)=>{
-            ws.removeListener('close', this.onClose);
-            ws.removeListener('error', this.onError);
-        })
-    }
+    // private removeAllListeners = () => {
+    //     this.getParticipantsSocket().forEach((ws)=>{
+    //         ws.removeListener('close', this.onClose);
+    //         ws.removeListener('error', this.onError);
+    //     })
+    // }
 
     private gameBody = async () => {
         let round = 0;
@@ -92,9 +93,8 @@ class Game {
             //TODO: Three-minute timeout
             // get one message from every participant that is alive
             const requests = await Promise.allSettled(this.getParticipantsSocket((p : Participant)=>!p.isDead).map((ws)=>recvMsg(ws)))
-            
-            //stop all the events from interfering the critical section
-            this.removeAllListeners()
+
+            console.log("all requests received",requests);
 
             let reqs : {id: string, guess: number}[] = []
             for(let i=0;i<requests.length;i++){
@@ -123,7 +123,7 @@ class Game {
                 }
             }
 
-            console.log("all res received",reqs);
+            assert(reqs.length===this.getAliveCount())
 
             const target = reqs.map((req)=>req.guess).reduce((xs,x)=>x+xs,0) / reqs.length * 0.8;
 
@@ -133,12 +133,19 @@ class Game {
             let winners : string[] = [];
             let winnersDiff : number | null = null; 
 
-            // * 2 players remaining: If someone chooses 0, a player who chooses 100 automatically wins the round.
-            if(this.getAliveCount()<=2 && reqs[0].guess === 0 && reqs[1].guess === 100){
+            if(reqs.length==0){
+                console.log("no one is in the game, game ended");
+                return;
+            }else if(reqs.length==1){
+                console.log("one person is in the game, that person wins");
+                winners = [reqs[0].id]
+                winnersDiff = null;
+            }else if(reqs.length==2 && reqs[0].guess === 0 && reqs[1].guess === 100){
+                // * 2 players remaining: If someone chooses 0, a player who chooses 100 automatically wins the round.
                 winners = [reqs[1].id]
                 winnersDiff = null;
                 justAppliedRules.add(2);
-            }else if(this.getAliveCount()<=2 && reqs[1].guess === 0 && reqs[0].guess === 100){
+            }else if(reqs.length==2 && reqs[1].guess === 0 && reqs[0].guess === 100){
                 winners = [reqs[0].id]
                 winnersDiff = null;
                 justAppliedRules.add(2);
@@ -147,7 +154,7 @@ class Game {
                     const req = reqs[i];
 
                     //* 4 players remaining: If two or more players choose the same number, the number is invalid and all players who selected the number will lose a point.
-                    if(this.getAliveCount()<=4){
+                    if(reqs.length<=4){
                         //check for duplicates
                         if(reqs.map((r)=>r.guess).filter((x)=>x===req.guess).length > 1){
                             justAppliedRules.add(4);
@@ -169,7 +176,7 @@ class Game {
                 //if alive and not win: -1 score
                 if(!winners.includes(p.id)){
                     // * 3 players remaining: If a player chooses the exact correct number, they win the round and all other players lose two points.
-                    if(this.getAliveCount()<=3 && winnersDiff && winnersDiff <= 0.5){
+                    if(reqs.length<=3 && winnersDiff && winnersDiff <= 0.5){
                         p.score -= 2;
                         justAppliedRules.add(3);
                     }else{
@@ -197,9 +204,6 @@ class Game {
 
             round += 1;
 
-            //resume all the events
-            this.addAllListeners();
-
             this.addBroadcastGameEvent({
                 event: "gameInfo",
                 participants: participantGuesses,
@@ -220,14 +224,15 @@ class Game {
         console.log("onClose fired in game.ts")
         //instead of throwing an error, just treat the client as game over
         const ws = event.target;
-        const participant = this.participants.filter((p)=>{
-            p.socket === ws
-        });
-        if(participant.length > 0){
-            participant[0].disconnected = true;
-            participant[0].isDead = true;
+        const participantList = this.participants.filter((p)=>p.socket === ws);
+        // console.log(participantList);
+        if(participantList.length > 0){
+            console.log("participant found and modifying its parameters")
+            const participant = participantList[0];
+            participant.disconnected = true;
+            participant.isDead = true;
             //TODO: put justDiedParticipants back to local variable of game body loop
-            this.justDiedParticipants.push(participant[0].id)
+            this.justDiedParticipants.push(participant.id)
         }
         
     }

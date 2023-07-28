@@ -1,5 +1,7 @@
 extends ../layouts/default
 
+block js
+    //- script(src="js/index.js")
 block append variables
     - var currentPage = "home";
     
@@ -9,3 +11,5 @@ block content
 
         p If you see this page, it means everything works fine.
         p Download the frontend code at <a href="https://github.com/OscarMui/balance-scale-frontend-python">GitHub</a> to play.
+
+        //- button#test.btn.btn-primary TEST
