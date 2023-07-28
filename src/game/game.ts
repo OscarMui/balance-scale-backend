@@ -22,7 +22,6 @@ class Game {
             socket: socket,
             score: 0,
             isDead: false,
-            disconnected: false, //disconnected only affects whether info will be sent to that player after they are dead
         });
 
         socket.addEventListener('close', this.onClose);
@@ -39,8 +38,8 @@ class Game {
     isEnded = () => this.inProgress && this.getAliveCount() <= 1;
 
     private getParticipantsSocket = (filterFn? : (p: Participant) => boolean) => {
-        if(filterFn) return  this.participants.filter(filterFn).filter((p)=>!p.disconnected).map((p)=>p.socket)
-        else return this.participants.filter((p)=>!p.disconnected).map((p)=>p.socket)
+        if(filterFn) return  this.participants.filter(filterFn).filter((p)=>p.socket.readyState===WebSocket.OPEN).map((p)=>p.socket)
+        else return this.participants.filter((p)=>p.socket.readyState===WebSocket.OPEN).map((p)=>p.socket)
     }
 
     private getParticipantsInfo = () => {
@@ -49,7 +48,6 @@ class Game {
             nickname: p.nickname, 
             score: p.score, 
             isDead: p.isDead,
-            disconnected: p.disconnected,
         } as ParticipantInfo})
     }
 
@@ -227,12 +225,18 @@ class Game {
         const participantList = this.participants.filter((p)=>p.socket === ws);
         // console.log(participantList);
         if(participantList.length > 0){
-            console.log("participant found and modifying its parameters")
-            const participant = participantList[0];
-            participant.disconnected = true;
-            participant.isDead = true;
-            //TODO: put justDiedParticipants back to local variable of game body loop
-            this.justDiedParticipants.push(participant.id)
+            if(this.isInProgress()){
+                console.log("onClose: participant found and game in progress, modifying its parameters")
+                const participant = participantList[0];
+                participant.isDead = true;
+                //TODO: put justDiedParticipants back to local variable of game body loop
+                this.justDiedParticipants.push(participant.id);
+            }else{
+                console.log("onClose: participant found and game hasn't started, just remove it")
+                this.participants = this.participants.filter((p)=>p.socket !== ws);
+            }
+        }else{
+            console.log("onClose: participant not found")
         }
         
     }
