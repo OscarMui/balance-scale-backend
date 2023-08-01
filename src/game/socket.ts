@@ -80,7 +80,7 @@ class Socket {
                         },id);
                         this.game.addParticipantByInfo({
                             id: id,
-                            nickname: req.nickname,
+                            nickname: req.nickname || id,
                             socket: ws,
                         })
                     }else{
