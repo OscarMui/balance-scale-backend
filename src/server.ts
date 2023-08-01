@@ -4,6 +4,7 @@ import * as WebSocket from 'ws';
 import Socket from './game/socket';
 
 import lessMiddleware = require('less-middleware');
+import apiVersion from "./api/version";
 
 const app = express();
 
@@ -26,6 +27,8 @@ app.use(express.urlencoded({extended: true}));
 //views
 app.get('/',(req,res)=>{res.render("index");});
 
+//api
+app.get('/api/version',apiVersion);
 //app.set, app.use
 app.set("view engine","pug");
 app.set('views','templates/views/');
