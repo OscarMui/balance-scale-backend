@@ -35,7 +35,7 @@ const recvMsg = (ws: WebSocket, sendConfirmation=false) : Promise<Object> => {
             }
 
             resolve({
-                socket: event.target,
+                socket: ws,
                 ...JSON.parse(event.data.toString())
             });
         }
@@ -48,7 +48,7 @@ const recvMsg = (ws: WebSocket, sendConfirmation=false) : Promise<Object> => {
             ws.removeEventListener('close', onClose);
             ws.removeEventListener('error', onError);
             reject({
-                socket: event.target,
+                socket: ws,
             })
         }
 
@@ -60,7 +60,7 @@ const recvMsg = (ws: WebSocket, sendConfirmation=false) : Promise<Object> => {
             ws.removeEventListener('close', onClose);
             ws.removeEventListener('error', onError);
             reject({
-                socket: event.target,
+                socket: ws,
             })
         }
 

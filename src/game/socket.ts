@@ -1,10 +1,10 @@
 import * as WebSocket from 'ws';
 import { v4 as uuidv4 } from 'uuid';
-import {Participant, Req} from '../common/interface';
+import {Participant, Req} from '../common/interfaces';
 import {recvMsg, sendMsg} from "../common/messaging";
 import assert from "../common/assert";
 import Game from './game';
-import { PARTICIPANTS_PER_GAME } from '../common/constants';
+import { NETWORK_DELAY_MS, PARTICIPANTS_PER_GAME } from '../common/constants';
 
 class Socket {
     private readonly wsServer : WebSocket.Server;
@@ -28,7 +28,7 @@ class Socket {
                 pingTimeout = setTimeout(() => {
                     console.log(`No ping received, terminating connection with ${id}...`);
                     ws.terminate();
-                }, 10000);
+                }, 5000 + NETWORK_DELAY_MS);
             }
     
             ws.on('ping', () => {

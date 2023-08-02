@@ -1,8 +1,9 @@
 import * as WebSocket from 'ws';
-import {Dead, GameEvent, GameInfo, GameStart, Participant, ParticipantGuess, ParticipantInfo, Req} from '../common/interface';
-import { DEAD_LIMIT, PARTICIPANTS_PER_GAME } from '../common/constants';
-import { broadcastMsg, recvMsg } from '../common/messaging';
+import {Dead, GameEvent, GameInfo, GameStart, Participant, ParticipantGuess, ParticipantInfo, Req} from '../common/interfaces';
+import { DEAD_LIMIT, NETWORK_DELAY_MS, PARTICIPANTS_PER_GAME, ROUND_TIME_MS, SHORTENED_TIME_MS } from '../common/constants';
+import { broadcastMsg, recvMsg, sendMsg } from '../common/messaging';
 import assert from '../common/assert';
+import { EventEmitter } from 'node:events';
 
 class Game {
     private participants : Participant[] = [];
@@ -73,6 +74,131 @@ class Game {
     //     })
     // }
 
+    //
+    private handleGuesses = (ws: WebSocket, pid: string, aliveCount: number) : Promise<Object> => {
+        return new Promise((resolve, reject) => {
+            let myGuess : {id: string, guess: number} | undefined = undefined;
+            let numDecided = 0; //number of players who guessed a number/ disconnected, if this number == aliveCount we will shorten the time 
+
+            let hasShortenedTimeout = false;
+
+            //a blank target just for obtaining the custom events
+            const emitter = new EventEmitter();
+            
+            const rejectWrapper = () => {
+                //remove ALL established listeners 
+                ws.removeEventListener('message', onMessage);
+                ws.removeEventListener('close', onClose);
+                ws.removeEventListener('error', onError);
+                emitter.removeListener('custom:firstGuess',onFirstGuess);
+                emitter.removeListener('custom:participantDisconnected',onParticipantDisconnected);
+
+                //need to execute that close code, as due to concurrency issues, that close code will not execute until the next game loop
+                this.handleClose(ws); 
+                if(ws.readyState !== WebSocket.CLOSED)
+                    ws.close();
+                reject();
+            }
+
+            const onMessage = (event: WebSocket.MessageEvent) => {
+                console.log("received: ",event.data.toString());
+                
+                try{
+                    const r = JSON.parse(event.data.toString()) as Req;
+                    assert(r.method==="submitGuess") //check method name
+                    assert(r.id===pid) //check id
+                    const guess = Number(r.guess) //check if the number is within range and is an integer 
+                    assert(Number.isInteger(guess)&&guess>=0&&guess<=100)
+                    
+                    if(!myGuess){
+                        console.log("dispatching event custom:firstGuess")
+                        emitter.emit("custom:firstGuess",pid,Date.now())
+                    }
+                    
+                    myGuess = {
+                        id: r.id,
+                        guess: r.guess,
+                    }
+                }catch(e){
+                    console.log("Error with submitGuess event",e)
+                    rejectWrapper()
+                }
+                
+                sendMsg(ws,{
+                    result: "success",
+                });
+            }
+            
+            const onClose = (event: WebSocket.CloseEvent) => {
+                console.log("onClose fired in handleGuesses")
+                rejectWrapper()
+            }
+        
+            const onError = (event : WebSocket.ErrorEvent) => {
+                console.log("onError fired in handleGuesses")
+                rejectWrapper()
+            }
+
+            const onParticipantDisconnected = (event : any) => {
+                console.log("onParticipantDisconnected")
+                console.log(event)
+                if(hasShortenedTimeout){
+                    shortenTimeout();
+                }else{
+                    numDecided += 1;
+                    if(numDecided === aliveCount){
+                        shortenTimeout();
+                    }
+                }
+            }
+            
+            const onFirstGuess = (event : any) => {
+                console.log("onFirstGuess")
+                console.log(event)
+                numDecided += 1;
+                if(numDecided === aliveCount){
+                    shortenTimeout();
+                }
+            }
+
+            ws.addEventListener('close', onClose);
+            ws.addEventListener('message', onMessage);
+            ws.addEventListener('error', onError);
+            emitter.addListener('custom:firstGuess',onFirstGuess);
+            emitter.addListener('custom:participantDisconnected',onParticipantDisconnected);
+
+            let currentTimeout = setTimeout(()=>{
+                if(myGuess && numDecided == aliveCount){
+                    //if everyone made a decision and we guessed a number
+                    ws.removeEventListener('message', onMessage);
+                    ws.removeEventListener('close', onClose);
+                    ws.removeEventListener('error', onError);
+                    emitter.removeListener('custom:firstGuess',onFirstGuess);
+                    emitter.removeListener('custom:participantDisconnected',onParticipantDisconnected);
+                    resolve(myGuess);
+                }else if(myGuess){
+                    shortenTimeout();
+                }else{
+                    rejectWrapper();
+                }
+            },ROUND_TIME_MS + NETWORK_DELAY_MS);
+
+            const shortenTimeout = () => {
+                hasShortenedTimeout = true;
+                clearTimeout(currentTimeout);
+                currentTimeout = setTimeout(()=>{
+                    ws.removeEventListener('message', onMessage);
+                    ws.removeEventListener('close', onClose);
+                    ws.removeEventListener('error', onError);
+                    emitter.removeListener('custom:firstGuess',onFirstGuess);
+                    emitter.removeListener('custom:participantDisconnected',onParticipantDisconnected);
+                    //@ts-ignore - PRE-CONDITION: on call to shortenTimeout, myGuess should be not undefined
+                    resolve(myGuess);
+                }, SHORTENED_TIME_MS + NETWORK_DELAY_MS)
+            }
+        });
+    }
+
     private gameBody = async () => {
         let round = 0;
         this.addBroadcastGameEvent({
@@ -90,7 +216,12 @@ class Game {
             //TODO: Allow players to modify their choice during the turn
             //TODO: Three-minute timeout
             // get one message from every participant that is alive
-            const requests = await Promise.allSettled(this.getParticipantsSocket((p : Participant)=>!p.isDead).map((ws)=>recvMsg(ws,true)))
+            const requests = await Promise.allSettled(
+                this.participants                    
+                    .filter((p)=>p.socket && p.socket.readyState===WebSocket.OPEN)
+                    .filter((p)=>!p.isDead)
+                    .map((p)=>this.handleGuesses(p.socket,p.id,this.getAliveCount()))
+            )
 
             console.log("all requests received",requests);
 
@@ -98,38 +229,7 @@ class Game {
             for(let i=0;i<requests.length;i++){
                 const request = requests[i] as any;
                 if(request.status==="fulfilled"){
-                    try{
-                        const r = request.value as Req;
-
-                        //check method name
-                        assert(r.method==="submitGuess")
-
-                        //check if the number is within range and is an integer 
-                        const guess = Number(r.guess)
-                        assert(Number.isInteger(guess)&&guess>=0&&guess<=100)
-                        
-                        reqs.push({
-                            id: r.id,
-                            guess: guess,
-                        })
-                    }catch(e){
-                        console.log("Error with submitGuess request.")
-                        
-                        //need to execute that close code, as due to concurrency issues, that close code will not execute until the next game loop
-                        this.handleClose(request.value.socket);
-                        
-                        if(request.value.socket.readyState !== WebSocket.CLOSED)
-                            request.value.socket.close();
-                    }
-                }else{
-                    assert(request.status==="rejected");
-                    console.log("Error with submitGuess request.")
-
-                    //need to execute that close code, as due to concurrency issues, that close code will not execute until the next game loop
-                    this.handleClose(request.reason.socket); 
-                    
-                    if(request.reason.socket.readyState !== WebSocket.CLOSED)
-                        request.reason.socket.close();
+                    reqs.push(request.value)
                 }
             }
 
