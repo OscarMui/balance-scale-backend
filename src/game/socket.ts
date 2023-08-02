@@ -1,7 +1,7 @@
 import * as WebSocket from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import {Participant, Req} from '../common/interface';
-import {sendMsg} from "../common/messaging";
+import {recvMsg, sendMsg} from "../common/messaging";
 import assert from "../common/assert";
 import Game from './game';
 import { PARTICIPANTS_PER_GAME } from '../common/constants';
@@ -13,7 +13,7 @@ class Socket {
     constructor(wsServer : WebSocket.Server){
         this.wsServer = wsServer;
         
-        wsServer.on('connection', (ws: WebSocket) => {
+        wsServer.on('connection', async (ws: WebSocket) => {
             // internal ID used for logging purposes only
             const id = uuidv4();
     
@@ -45,74 +45,49 @@ class Socket {
                 id: id,
             },id);
 
-    
-            ws.on('message', (message: string) => {
-                //TODO: only the joinGame request is handled here, might move it somewhere that makes more sense later
-                try{
-                    const req : Req = JSON.parse(message);
-                    console.log(`received from ${id}:`, req);
-                    if(req.method === "joinGame"){
-                        //TODO: allow multiple games and multiple waiting rooms
-                        if(this.game.isEnded()){
-                            //start a new game
-                            this.game = new Game();
-                        }
-                        if(this.game.isInProgress()){
-                            console.log('Game in progress, please try again later');
-                            sendMsg(ws,{
-                                result: "error",
-                                errorMsg: "Game in progress, please try again later",
-                            },id);
-                            return;
-                        }
-                        //if too much players are playing give error and just do nothing
-                        if(this.game.getParticipantsCount() >= PARTICIPANTS_PER_GAME){
-                            console.log('Maximum number of participants reached');
-                            sendMsg(ws,{
-                                result: "error",
-                                errorMsg: "Maximum number of participants reached",
-                            },id);
-                            return;
-                        }
-                        sendMsg(ws,{
-                            result: "success",
-                            participantsCount: this.game.getParticipantsCount()+1,
-                        },id);
-                        this.game.addParticipantByInfo({
-                            id: id,
-                            nickname: req.nickname || id,
-                            socket: ws,
-                        })
-                    }else{
-                        //other methods are handled at other places of the code right now
-                        // sendMsg(ws,{
-                        //     result: "error",
-                        //     errorMsg: "Bad method",
-                        // });
-                    }
-                }catch(e){
+            //receive one message from the client, expect it to be joinGame
+            try{
+                const req = (await recvMsg(ws)) as Req;
+                assert(req.method=="joinGame");
+
+                //TODO: allow multiple games and multiple waiting rooms
+                if(this.game.isEnded()){
+                    //start a new game
+                    this.game = new Game();
+                }
+                if(this.game.isInProgress()){
+                    console.log('Game in progress, please try again later');
                     sendMsg(ws,{
                         result: "error",
-                        errorMsg: "Cannot decode message",
-                    });
+                        errorMsg: "Game in progress, please try again later",
+                    },id);
+                    return;
                 }
-                // const broadcastRegex = /^broadcast\:/;
-    
-                // if (broadcastRegex.test(message)) {
-                //     message = message.toString().replace(broadcastRegex, '');
-    
-                //     //send back the message to the other clients
-                //     wsServer.clients
-                //         .forEach(client => {
-                //             if (client != ws) {
-                //                 client.send(`Hello, broadcast message -> ${message}`);
-                //             }    
-                //         });
-                    
-                // } else {
-                //     ws.send(`Hello, you sent -> ${message}`);
-                // }
-            });
+                //if too much players are playing give error and just do nothing
+                if(this.game.getParticipantsCount() >= PARTICIPANTS_PER_GAME){
+                    console.log('Maximum number of participants reached');
+                    sendMsg(ws,{
+                        result: "error",
+                        errorMsg: "Maximum number of participants reached",
+                    },id);
+                    return;
+                }
+                sendMsg(ws,{
+                    result: "success",
+                    participantsCount: this.game.getParticipantsCount()+1,
+                },id);
+                this.game.addParticipantByInfo({
+                    id: id,
+                    nickname: req.nickname || "Player",
+                    socket: ws,
+                })
+            }catch(e){
+                console.log("Error with joinGame request, connection terminated with client.")
+                ws.close();
+            }
+            
+            // ws.on('message', (message: string) => {
+            // });
     
             // ws.on('close', () => {
             //     console.log(`User ${id} disconnected`);

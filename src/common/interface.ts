@@ -41,8 +41,13 @@ export interface GameInfo extends GameEvent {
     target: number,
     winners: string[], //winners id
     //properties that start with just emphasizes that they represents the change in state but not the current state
-    justDiedParticipants: string[], //dead id
+    justDiedParticipants: Dead[],
     justAppliedRules: (2 | 3 | 4)[],
+}
+
+export interface Dead {
+    id: string,
+    reason: "disconnected" | "deadLimit",
 }
 
 // export enum Special {

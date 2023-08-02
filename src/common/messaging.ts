@@ -1,4 +1,8 @@
 import * as WebSocket from 'ws';
+
+//no try catch is needed for sendMsg and broadcastMsg
+//The browser will throw an exception if you call send() when the connection is in the CONNECTING state. If you call send() when the connection is in the CLOSING or CLOSED states, the browser will silently discard the data.
+
 //send a message to a websocket, id is optional and is for debugging only
 const sendMsg = (ws: WebSocket, msg : Object, id? : string) => {
     if(id) console.log(`sent to ${id}:`,msg);
@@ -16,7 +20,7 @@ const broadcastMsg = (wss: WebSocket[], msg : Object) => {
 }
 
 //wait for a message
-const recvMsg = (ws: WebSocket) : Promise<Object> => {
+const recvMsg = (ws: WebSocket, sendConfirmation=false) : Promise<Object> => {
     return new Promise((resolve, reject) => {
         function onMessage(event: WebSocket.MessageEvent) {
             //remove ALL established listeners 
@@ -24,21 +28,16 @@ const recvMsg = (ws: WebSocket) : Promise<Object> => {
             ws.removeEventListener('close', onClose);
             ws.removeEventListener('error', onError);
             console.log("received: ",event.data.toString());
-            try{
+            if(sendConfirmation){
                 sendMsg(ws,{
                     result: "success",
                 });
-
-                resolve({
-                    socket: event.target,
-                    ...JSON.parse(event.data.toString())
-                });
-            }catch(e){
-                reject({
-                    socket: event.target,
-                })
             }
-            
+
+            resolve({
+                socket: event.target,
+                ...JSON.parse(event.data.toString())
+            });
         }
     
         ws.addEventListener('message', onMessage);
