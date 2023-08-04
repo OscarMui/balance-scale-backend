@@ -106,12 +106,6 @@ class Game {
                     });
                 }else{
                     //no guess, need to inform all other participants
-                    
-                    //it is pushed here so that it is only pushed once
-                    this.gameEvents.push({
-                        event: "participantDisconnectedMidgame",
-                        id: pid,
-                    } as ParticipantDisconnectedMidgame)
                     emitter.emit("custom:participantDisconnectedMidgame",pid,Date.now())
                     reject()
                 }
@@ -277,6 +271,12 @@ class Game {
                         })
                     }
                     reqs.push(value)
+                }else{
+                    const reason = request.reason as {id: string}
+                    justDiedParticipants.push({
+                        id: reason.id,
+                        reason: "disconnectedMidgame"
+                    })
                 }
             }
 

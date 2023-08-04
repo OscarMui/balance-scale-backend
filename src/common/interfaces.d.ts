@@ -60,7 +60,7 @@ export interface ParticipantDisconnectedMidgame extends GameEvent {
 
 export interface Dead {
     id: string,
-    reason: "disconnected" | "deadLimit",
+    reason: "disconnected" | "deadLimit" | "disconnectedMidgame",
 }
 
 // export enum Special {
