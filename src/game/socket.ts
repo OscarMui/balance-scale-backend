@@ -86,7 +86,10 @@ class Socket {
                 ws.close();
             }
             
+            // very good for debugging
             // ws.on('message', (message: string) => {
+            //     const req = JSON.parse(message);
+            //     console.debug("WILD",req)
             // });
     
             // ws.on('close', () => {

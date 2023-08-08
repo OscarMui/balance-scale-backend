@@ -74,15 +74,18 @@ class Game {
     // }
 
     //
-    private handleGuesses = (ws: WebSocket, pid: string, roundInitTime: number, aliveCount: number) : Promise<Object> => {
+    private handleGuesses = (
+        ws: WebSocket, 
+        emitter: EventEmitter,
+        pid: string, 
+        roundInitTime: number, 
+        aliveCount: number
+    ) : Promise<Object> => {
         return new Promise((resolve, reject) => {
             let myGuess : {id: string, guess: number} | undefined = undefined;
             let numDecided = 0; //number of players who guessed a number/ disconnected, if this number == aliveCount we will shorten the time 
 
             let hasShortenedCountdown = false;
-
-            //a blank target just for obtaining the custom events
-            const emitter = new EventEmitter();
             
             //this will be called when there are problems with the current connection
             const errorWrapper = () => {
@@ -105,9 +108,14 @@ class Game {
                         stillAlive: false,
                     });
                 }else{
-                    //no guess, need to inform all other participants
+                    //no guess, need to inform all other participants, including those who died
+                    this.addBroadcastGameEvent({
+                        event: "participantDisconnectedMidgame",
+                        aliveCount: this.getAliveCount(),
+                        id: pid,
+                    } as ParticipantDisconnectedMidgame);
                     emitter.emit("custom:participantDisconnectedMidgame",pid,Date.now())
-                    reject()
+                    reject({id: pid})
                 }
             }
 
@@ -122,8 +130,13 @@ class Game {
                     assert(Number.isInteger(guess)&&guess>=0&&guess<=100)
                     
                     if(!myGuess){
-                        console.log("dispatching event custom:firstDecision")
-                        emitter.emit("custom:firstDecision",pid,Date.now())
+                        console.log("dispatching event custom:firstDecision from ",pid)
+                        const eventTime = Date.now();
+                        emitter.emit("custom:firstDecision",pid,eventTime)
+                        // numDecided += 1;
+                        // if(numDecided === aliveCount){
+                        //     shortenCountdown(eventTime);
+                        // }
                     }
                     
                     myGuess = {
@@ -156,10 +169,10 @@ class Game {
                 assert(!hasShortenedCountdown);
 
                 //tell our client that a participant has disconnected
-                sendMsg(ws,{
-                    event: "participantDisconnectedMidgame",
-                    id: eventPid,
-                } as ParticipantDisconnectedMidgame);
+                // sendMsg(ws,{
+                //     event: "participantDisconnectedMidgame",
+                //     id: eventPid,
+                // } as ParticipantDisconnectedMidgame);
 
                 //disconnecting before making a first guess is considered as a form of decision
                 numDecided += 1;
@@ -169,7 +182,7 @@ class Game {
             }
             
             const onFirstDecision = (eventPid : string, eventTime: number) => {
-                console.log("onFirstDecision", eventTime)
+                console.log("onFirstDecision fired in ", pid , eventTime)
                 numDecided += 1;
                 if(numDecided === aliveCount){
                     shortenCountdown(eventTime);
@@ -194,7 +207,10 @@ class Game {
                     ws.removeEventListener('error', onError);
                     emitter.removeListener('custom:firstDecision',onFirstDecision);
                     emitter.removeListener('custom:participantDisconnectedMidgame',onParticipantDisconnectedMidgame);
-                    resolve(myGuess);
+                    resolve({
+                        ...myGuess,
+                        stillAlive: true,
+                    });
                 }else if(myGuess){
                     shortenCountdown(origEndTime);
                 }else{
@@ -243,18 +259,21 @@ class Game {
             let justDiedParticipants : Dead[] = [];
             let justAppliedRules = new Set<number>()
 
-            await sleep(5000);
-            
-            //TODO: Notify people when a player disconnected during the turn
-            //TODO: Allow players to modify their choice during the turn
-            //TODO: Three-minute timeout
+            //a blank target just for obtaining the custom events
+            const emitter = new EventEmitter();
 
             // get one message from every participant that is alive
             const requests = await Promise.allSettled(
                 this.participants                    
                     .filter((p)=>p.socket && p.socket.readyState===WebSocket.OPEN)
                     .filter((p)=>!p.isDead)
-                    .map((p)=>this.handleGuesses(p.socket,p.id,roundInitTime,this.getAliveCount()))
+                    .map((p)=>this.handleGuesses(
+                        p.socket,
+                        emitter,
+                        p.id,
+                        roundInitTime,
+                        this.getAliveCount()
+                    ))
             )
 
             console.log("all requests received",requests);

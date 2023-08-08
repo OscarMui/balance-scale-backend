@@ -55,6 +55,7 @@ export interface ShortenCountdown extends GameEvent {
 
 export interface ParticipantDisconnectedMidgame extends GameEvent {
     event: "participantDisconnectedMidgame",
+    aliveCount: number,
     id: string,
 }
 
