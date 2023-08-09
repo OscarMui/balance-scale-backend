@@ -28,6 +28,7 @@ export interface GameStart extends GameEvent {
     event: "gameStart",
     participants: ParticipantInfo[],
     round: number,
+    roundStartTime: number,
     roundEndTime: number,
     gameEnded: boolean,
     aliveCount: number,
@@ -41,6 +42,7 @@ export interface GameInfo extends GameEvent {
     aliveCount: number,
     target: number,
     winners: string[], //winners id
+    roundStartTime: number,
     roundEndTime: number,
     //properties that start with just emphasizes that they represents the change in state but not the current state
     justDiedParticipants: Dead[],
@@ -48,8 +50,10 @@ export interface GameInfo extends GameEvent {
 }
 
 
-export interface ShortenCountdown extends GameEvent {
-    event: "shortenCountdown",
+export interface ChangeCountdown extends GameEvent {
+    event: "changeCountdown",
+    reason: "participantDisconnectedMidgame" | "allDecided",
+    startTime?: number,
     endTime: number,
 }
 

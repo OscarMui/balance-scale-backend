@@ -1,6 +1,6 @@
 import * as WebSocket from 'ws';
-import {Dead, GameEvent, GameInfo, GameStart, Participant, ParticipantDisconnectedMidgame, ParticipantGuess, ParticipantInfo, Req, ShortenCountdown} from '../common/interfaces';
-import { DEAD_LIMIT, NETWORK_DELAY_MS, PARTICIPANTS_PER_GAME, ROUND_TIME_MS, SHORTENED_TIME_MS } from '../common/constants';
+import {Dead, GameEvent, GameInfo, GameStart, Participant, ParticipantDisconnectedMidgame, ParticipantGuess, ParticipantInfo, Req, ChangeCountdown} from '../common/interfaces';
+import { DEAD_LIMIT, DIGEST_TIME_MS, NETWORK_DELAY_MS, PARTICIPANTS_PER_GAME, ROUND_INFO_DIGEST_TIME_MS, ROUND_TIME_MS, SHORTENED_TIME_MS } from '../common/constants';
 import { broadcastMsg, recvMsg, sendMsg } from '../common/messaging';
 import assert from '../common/assert';
 import { EventEmitter } from 'node:events';
@@ -78,7 +78,7 @@ class Game {
         ws: WebSocket, 
         emitter: EventEmitter,
         pid: string, 
-        roundInitTime: number, 
+        roundStartTime: number, 
         aliveCount: number
     ) : Promise<Object> => {
         return new Promise((resolve, reject) => {
@@ -95,7 +95,9 @@ class Game {
                 ws.removeEventListener('error', onError);
                 emitter.removeListener('custom:firstDecision',onFirstDecision);
                 emitter.removeListener('custom:participantDisconnectedMidgame',onParticipantDisconnectedMidgame);
-
+                
+                clearTimeout(currentTimeout);
+                
                 //need to execute that close code, as due to concurrency issues, that close code will not execute until the next game loop
                 this.handleClose(ws); 
                 if(ws.readyState !== WebSocket.CLOSED)
@@ -121,7 +123,14 @@ class Game {
 
             const onMessage = (event: WebSocket.MessageEvent) => {
                 console.log("received: ",event.data.toString());
-                
+                const eventTime = Date.now();
+
+                if(eventTime < roundStartTime){
+                    //indicate a potential malicious client
+                    errorWrapper();
+                    return;
+                }
+        
                 try{
                     const r = JSON.parse(event.data.toString()) as Req;
                     assert(r.method==="submitGuess") //check method name
@@ -131,12 +140,7 @@ class Game {
                     
                     if(!myGuess){
                         console.log("dispatching event custom:firstDecision from ",pid)
-                        const eventTime = Date.now();
                         emitter.emit("custom:firstDecision",pid,eventTime)
-                        // numDecided += 1;
-                        // if(numDecided === aliveCount){
-                        //     shortenCountdown(eventTime);
-                        // }
                     }
                     
                     myGuess = {
@@ -177,15 +181,15 @@ class Game {
                 //disconnecting before making a first guess is considered as a form of decision
                 numDecided += 1;
                 if(numDecided === aliveCount){
-                    shortenCountdown(eventTime);
+                    changeCountdown(eventTime,"participantDisconnectedMidgame");
                 }
             }
             
             const onFirstDecision = (eventPid : string, eventTime: number) => {
-                console.log("onFirstDecision fired in ", pid , eventTime)
+                // console.log("onFirstDecision fired in ", pid , eventTime)
                 numDecided += 1;
                 if(numDecided === aliveCount){
-                    shortenCountdown(eventTime);
+                    changeCountdown(eventTime,"allDecided");
                 }
             }
 
@@ -195,7 +199,7 @@ class Game {
             emitter.addListener('custom:firstDecision',onFirstDecision);
             emitter.addListener('custom:participantDisconnectedMidgame',onParticipantDisconnectedMidgame);
 
-            const origEndTime = roundInitTime + ROUND_TIME_MS + NETWORK_DELAY_MS;
+            const internalOrigEndTime = roundStartTime + ROUND_TIME_MS + NETWORK_DELAY_MS;
 
             let currentTimeout = setTimeout(()=>{
                 console.log("Round timeout fired")
@@ -211,23 +215,28 @@ class Game {
                         ...myGuess,
                         stillAlive: true,
                     });
-                }else if(myGuess){
-                    shortenCountdown(origEndTime);
-                }else{
+                }else if(!myGuess){
                     errorWrapper();
                 }
-            },origEndTime - Date.now());
+                //if myGuess, no need to do anything, the logic is handled when the thread without myGuess calls the errorWrapper, calling the onParticipantDisconnectedMidgame event
+            },internalOrigEndTime - Date.now());
 
-            const shortenCountdown = (eventTime : number) => {
-                const endTime = SHORTENED_TIME_MS + NETWORK_DELAY_MS + eventTime;
+            const changeCountdown = (eventTime : number, reason: "participantDisconnectedMidgame" | "allDecided") => {
+                const endTime = reason=="participantDisconnectedMidgame" ? 
+                                SHORTENED_TIME_MS + DIGEST_TIME_MS + eventTime: 
+                                SHORTENED_TIME_MS + eventTime;
+                const internalEndTime = endTime + NETWORK_DELAY_MS;
+
                 //not do anything if original end time ends sooner
-                if(endTime > origEndTime) return;
+                if(reason==="allDecided" && internalEndTime > internalOrigEndTime) return;
 
                 hasShortenedCountdown = true;
                 sendMsg(ws,{
-                    event: "shortenCountdown",
+                    event: "changeCountdown",
+                    reason: reason,
+                    startTime: reason==="participantDisconnectedMidgame" ? eventTime + DIGEST_TIME_MS : undefined,
                     endTime: endTime,
-                } as ShortenCountdown);
+                } as ChangeCountdown);
 
                 clearTimeout(currentTimeout);
                 currentTimeout = setTimeout(()=>{
@@ -237,26 +246,27 @@ class Game {
                     ws.removeEventListener('error', onError);
                     emitter.removeListener('custom:firstDecision',onFirstDecision);
                     emitter.removeListener('custom:participantDisconnectedMidgame',onParticipantDisconnectedMidgame);
-                    //@ts-ignore - PRE-CONDITION: on call to shortenCountdown, myGuess should be not undefined
+                    //@ts-ignore - PRE-CONDITION: on call to changeCountdown, myGuess should be not undefined
                     resolve({
                         ...myGuess,
                         stillAlive: true,
                     });
-                }, endTime - Date.now())
+                }, internalEndTime - Date.now())
             }
         });
     }
 
     private gameBody = async () => {
-        let round = 0;
-        let roundInitTime = Date.now();
+        let round = 1;
+        let roundStartTime = Date.now(); // + ROUND_INFO_DIGEST_TIME_MS; //no digest time is needed for round 0
         this.addBroadcastGameEvent({
             event: "gameStart",
             participants: this.getParticipantsInfo(),
             round: round,
             gameEnded: this.isEnded(),
             aliveCount: this.getAliveCount(),
-            roundEndTime: roundInitTime + ROUND_TIME_MS,
+            roundStartTime: roundStartTime,
+            roundEndTime: roundStartTime + ROUND_TIME_MS,
         } as GameStart);
         while(!this.isEnded()){
             let justDiedParticipants : Dead[] = [];
@@ -274,7 +284,7 @@ class Game {
                         p.socket,
                         emitter,
                         p.id,
-                        roundInitTime,
+                        roundStartTime,
                         this.getAliveCount()
                     ))
             )
@@ -383,13 +393,14 @@ class Game {
             });
 
             round += 1;
-            roundInitTime = Date.now();
+            roundStartTime = Date.now() + ROUND_INFO_DIGEST_TIME_MS;
 
             this.addBroadcastGameEvent({
                 event: "gameInfo",
                 participants: participantGuesses,
                 round: round,
-                roundEndTime: roundInitTime + ROUND_TIME_MS,
+                roundStartTime: roundStartTime,
+                roundEndTime: roundStartTime + ROUND_TIME_MS,
                 gameEnded: this.participants.filter((p)=>!p.isDead).length === 1,
                 aliveCount: this.getAliveCount(),
                 target: target,
