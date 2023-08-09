@@ -1,5 +1,5 @@
 // Constants mainly for testing purposes
-export const PARTICIPANTS_PER_GAME = 2;
+export const PARTICIPANTS_PER_GAME = 5;
 export const DEAD_LIMIT = -5;
 export const NETWORK_DELAY_MS = 2000;
 export const ROUND_TIME_MS = 60 * 1000; //60s

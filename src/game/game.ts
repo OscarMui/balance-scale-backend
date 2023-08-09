@@ -220,6 +220,9 @@ class Game {
 
             const shortenCountdown = (eventTime : number) => {
                 const endTime = SHORTENED_TIME_MS + NETWORK_DELAY_MS + eventTime;
+                //not do anything if original end time ends sooner
+                if(endTime > origEndTime) return;
+
                 hasShortenedCountdown = true;
                 sendMsg(ws,{
                     event: "shortenCountdown",
@@ -298,8 +301,6 @@ class Game {
                     })
                 }
             }
-
-            assert(reqs.length===this.getAliveCount())
 
             const target = reqs.map((req)=>req.guess).reduce((xs,x)=>x+xs,0) / reqs.length * 0.8;
 
