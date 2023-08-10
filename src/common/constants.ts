@@ -1,15 +1,17 @@
+const production = true
+
 // Constants mainly for testing purposes
-export const PARTICIPANTS_PER_GAME = 5;
-export const DEAD_LIMIT = -10;
+export const PARTICIPANTS_PER_GAME = production ? 5 : 2;
+export const DEAD_LIMIT = production ? -10 : -3;
 
 //tolerance time to network delays, the client does not know about this
-export const NETWORK_DELAY_MS = 1000;
+export const NETWORK_DELAY_MS = production ? 1000 : 1000;
 
 //time allowed per round
-export const ROUND_TIME_MS = 3 * 60 * 1000; //180s
+export const ROUND_TIME_MS = production ? 3 * 60 * 1000 : 60 * 1000; //180s
 
 //time allowed when every player has made their decision
-export const SHORTENED_TIME_MS = 15 * 1000; //15s
+export const SHORTENED_TIME_MS = production ? 15 * 1000 : 15 * 1000; //15s
 
 //time given to players between rounds to digest information, the client does not know about this
 export const ROUND_INFO_DIGEST_TIME_MS = 7 * 1000; //7s
@@ -17,4 +19,4 @@ export const ROUND_INFO_DIGEST_TIME_MS = 7 * 1000; //7s
 //time given to players between rounds to digest other normal information, the client does not know about this
 export const DIGEST_TIME_MS = 5 * 1000; //5s
 
-export const ACCEPTED_CLIENT_VERSIONS = ["20230809.0"]
+export const ACCEPTED_CLIENT_VERSIONS = ["20230809.1"]

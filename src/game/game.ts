@@ -84,6 +84,7 @@ class Game {
         return new Promise((resolve, reject) => {
             let myGuess : {id: string, guess: number} | undefined = undefined;
             let numDecided = 0; //number of players who guessed a number/ disconnected, if this number == aliveCount we will shorten the time 
+            let numDisconnected = 0; //number of players disconnected
 
             let hasShortenedCountdown = false;
             
@@ -119,6 +120,15 @@ class Game {
                     emitter.emit("custom:participantDisconnectedMidgame",pid,Date.now())
                     reject({id: pid})
                 }
+            }
+
+            const successWrapper = (res: Object) => {
+                ws.removeEventListener('message', onMessage);
+                ws.removeEventListener('close', onClose);
+                ws.removeEventListener('error', onError);
+                emitter.removeListener('custom:firstDecision',onFirstDecision);
+                emitter.removeListener('custom:participantDisconnectedMidgame',onParticipantDisconnectedMidgame);
+                resolve(res);
             }
 
             const onMessage = (event: WebSocket.MessageEvent) => {
@@ -172,11 +182,21 @@ class Game {
                 //if this event is fired, that person has not made a first guess, else it would have been resolved
                 assert(!hasShortenedCountdown);
 
-                //tell our client that a participant has disconnected
-                // sendMsg(ws,{
-                //     event: "participantDisconnectedMidgame",
-                //     id: eventPid,
-                // } as ParticipantDisconnectedMidgame);
+                numDisconnected += 1;
+                if(numDisconnected === aliveCount - 1){ //only we are alive, resolve immediately
+                    if(myGuess){
+                        successWrapper({
+                            ...myGuess,
+                            stillAlive: true,
+                        })
+                    }else{
+                        successWrapper({
+                            id: pid,
+                            guess: 0, //dummy value
+                            stillAlive: true,
+                        })
+                    }
+                }
 
                 //disconnecting before making a first guess is considered as a form of decision
                 numDecided += 1;
@@ -206,15 +226,10 @@ class Game {
                 
                 if(myGuess && numDecided == aliveCount){
                     //if everyone made a decision and we guessed a number
-                    ws.removeEventListener('message', onMessage);
-                    ws.removeEventListener('close', onClose);
-                    ws.removeEventListener('error', onError);
-                    emitter.removeListener('custom:firstDecision',onFirstDecision);
-                    emitter.removeListener('custom:participantDisconnectedMidgame',onParticipantDisconnectedMidgame);
-                    resolve({
+                    successWrapper({
                         ...myGuess,
                         stillAlive: true,
-                    });
+                    })
                 }else if(!myGuess){
                     errorWrapper();
                 }
@@ -227,9 +242,12 @@ class Game {
                                 SHORTENED_TIME_MS + eventTime;
                 const internalEndTime = endTime + NETWORK_DELAY_MS;
 
-                //not do anything if original end time ends sooner
+                //For all decided: not do anything if original end time ends sooner
                 if(reason==="allDecided" && internalEndTime > internalOrigEndTime) return;
 
+                //For participantDisconnectedMidgame: also not to do anything if the original end time is later
+                if(reason==="participantDisconnectedMidgame" && internalEndTime < internalOrigEndTime) return;
+                
                 hasShortenedCountdown = true;
                 sendMsg(ws,{
                     event: "changeCountdown",
@@ -241,13 +259,7 @@ class Game {
                 clearTimeout(currentTimeout);
                 currentTimeout = setTimeout(()=>{
                     console.log("Round shortened timeout fired")
-                    ws.removeEventListener('message', onMessage);
-                    ws.removeEventListener('close', onClose);
-                    ws.removeEventListener('error', onError);
-                    emitter.removeListener('custom:firstDecision',onFirstDecision);
-                    emitter.removeListener('custom:participantDisconnectedMidgame',onParticipantDisconnectedMidgame);
-                    //@ts-ignore - PRE-CONDITION: on call to changeCountdown, myGuess should be not undefined
-                    resolve({
+                    successWrapper({
                         ...myGuess,
                         stillAlive: true,
                     });
@@ -359,7 +371,10 @@ class Game {
             }
 
             //modify score and isDead
-            this.participants.filter((p)=>!p.isDead).forEach((p)=>{
+            reqs.forEach((req)=>{
+                //get corresponding participant
+                const p = this.participants.filter((pp) => pp.id===req.id)[0];
+
                 //if alive and not win: -1 score
                 if(!winners.includes(p.id)){
                     // * 3 players remaining: If a player chooses the exact correct number, they win the round and all other players lose two points.
@@ -374,11 +389,13 @@ class Game {
                 // dead if DEAD_LIMIT score or worse
                 if(p.score <= DEAD_LIMIT){
                     p.score = DEAD_LIMIT; //display -10 instead of -11 or sth
-                    p.isDead = true;
-                    justDiedParticipants.push({
-                        id: p.id,
-                        reason: "deadLimit",
-                    })
+                    if(!p.isDead){
+                        p.isDead = true;
+                        justDiedParticipants.push({
+                            id: p.id,
+                            reason: "deadLimit",
+                        })
+                    }
                 }
             })
 
@@ -401,7 +418,7 @@ class Game {
                 round: round,
                 roundStartTime: roundStartTime,
                 roundEndTime: roundStartTime + ROUND_TIME_MS,
-                gameEnded: this.participants.filter((p)=>!p.isDead).length === 1,
+                gameEnded: this.isEnded(),
                 aliveCount: this.getAliveCount(),
                 target: target,
                 winners: winners,
