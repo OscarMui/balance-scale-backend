@@ -19,4 +19,4 @@ export const ROUND_INFO_DIGEST_TIME_MS = 7 * 1000; //7s
 //time given to players between rounds to digest other normal information, the client does not know about this
 export const DIGEST_TIME_MS = 5 * 1000; //5s
 
-export const ACCEPTED_CLIENT_VERSIONS = ["20230809.2"]
+export const ACCEPTED_CLIENT_VERSIONS = ["20230811.dev"]
