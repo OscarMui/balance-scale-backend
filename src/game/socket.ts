@@ -24,11 +24,12 @@ class Socket {
             let pingTimeout : NodeJS.Timeout;
             const waitPing = () => {
                 ws.pong();
+                //update: disable this check to tolerate bad network
                 //a timeout s.t. if client does not respond in 10 seconds, we terminate the connection
-                pingTimeout = setTimeout(() => {
-                    console.log(`No ping received, terminating connection with ${id}...`);
-                    ws.terminate();
-                }, 5000 + NETWORK_DELAY_MS);
+                // pingTimeout = setTimeout(() => {
+                //     console.log(`No ping received, terminating connection with ${id}...`);
+                //     ws.terminate();
+                // }, 5000 + NETWORK_DELAY_MS);
             }
     
             ws.on('ping', () => {
