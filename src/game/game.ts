@@ -37,7 +37,7 @@ class Game {
 
     isEnded = () => this.inProgress && this.getAliveCount() <= 1;
 
-    private getParticipantsSocket = (filterFn? : (p: Participant) => boolean) => {
+    getParticipantsSocket = (filterFn? : (p: Participant) => boolean) => {
         if(filterFn) return  this.participants.filter(filterFn).filter((p)=>p.socket && p.socket.readyState===WebSocket.OPEN).map((p)=>p.socket)
         else return this.participants.filter((p)=>p.socket && p.socket.readyState===WebSocket.OPEN).map((p)=>p.socket)
     }

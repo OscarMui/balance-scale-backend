@@ -1,7 +1,7 @@
 import * as WebSocket from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import {Participant, Req} from '../common/interfaces';
-import {recvMsg, sendMsg} from "../common/messaging";
+import {broadcastMsg, recvMsg, sendMsg} from "../common/messaging";
 import assert from "../common/assert";
 import Game from './game';
 import { NETWORK_DELAY_MS, PARTICIPANTS_PER_GAME } from '../common/constants';
@@ -76,7 +76,16 @@ class Socket {
                 sendMsg(ws,{
                     result: "success",
                     participantsCount: this.game.getParticipantsCount()+1,
+                    participantsPerGame: PARTICIPANTS_PER_GAME,
                 },id);
+
+                //note that the new joiner would not get this message
+                broadcastMsg(this.game.getParticipantsSocket(), {
+                    event: "updateParticipantsCount",
+                    participantsCount: this.game.getParticipantsCount()+1,
+                    participantsPerGame: PARTICIPANTS_PER_GAME,
+                })
+
                 this.game.addParticipantByInfo({
                     id: id,
                     nickname: req.nickname || "Player",
