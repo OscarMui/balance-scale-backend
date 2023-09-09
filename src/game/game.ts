@@ -1,6 +1,6 @@
 import * as WebSocket from 'ws';
 import {Dead, GameEvent, GameInfo, GameStart, Participant, ParticipantDisconnectedMidgame, ParticipantGuess, ParticipantInfo, Req, ChangeCountdown} from '../common/interfaces';
-import { DEAD_LIMIT, DIGEST_TIME_MS, NETWORK_DELAY_MS, PARTICIPANTS_PER_GAME, ROUND_INFO_DIGEST_TIME_MS, ROUND_TIME_MS, SHORTENED_TIME_MS } from '../common/constants';
+import { DEAD_LIMIT, DIGEST_TIME_MS, NETWORK_DELAY_MS, PARTICIPANTS_PER_GAME, ROUND_INFO_DIGEST_TIME_MS, ROUND_TIME_MS, ROUND_ZERO_DIGEST_TIME_MS, SHORTENED_TIME_MS } from '../common/constants';
 import { broadcastMsg, recvMsg, sendMsg } from '../common/messaging';
 import assert from '../common/assert';
 import { EventEmitter } from 'node:events';
@@ -270,7 +270,7 @@ class Game {
 
     private gameBody = async () => {
         let round = 1;
-        let roundStartTime = Date.now(); // + ROUND_INFO_DIGEST_TIME_MS; //no digest time is needed for round 0
+        let roundStartTime = Date.now() + ROUND_ZERO_DIGEST_TIME_MS; //shorter digest time for round 0
         this.addBroadcastGameEvent({
             event: "gameStart",
             participants: this.getParticipantsInfo(),
