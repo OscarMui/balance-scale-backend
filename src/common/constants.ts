@@ -22,4 +22,4 @@ export const ROUND_INFO_DIGEST_TIME_MS = 10 * 1000; //7s
 //time given to players to digest other normal information, the client does not know about this
 export const DIGEST_TIME_MS = 5 * 1000; //5s
 
-export const ACCEPTED_CLIENT_VERSIONS = ["20230912.0"]
+export const ACCEPTED_CLIENT_VERSIONS = ["20230912.0.cmd","20230912.0.app"]
