@@ -8,7 +8,7 @@ import { NETWORK_DELAY_MS, PARTICIPANTS_PER_GAME } from '../common/constants';
 
 class Socket {
     private readonly wsServer : WebSocket.Server;
-    private game : Game = new Game();
+    private games : Game[] = [new Game()]
 
     constructor(wsServer : WebSocket.Server){
         this.wsServer = wsServer;
@@ -50,13 +50,14 @@ class Socket {
             try{
                 const req = (await recvMsg(ws)) as Req;
                 assert(req.method=="joinGame");
+                
+                this.games = this.games.filter((game)=>!game.isEnded())
 
-                //TODO: allow multiple games and multiple waiting rooms
-                if(this.game.isEnded()){
+                if(this.games.length == 0 || this.games[0].isInProgress()){
                     //start a new game
-                    this.game = new Game();
+                    this.games = [new Game(), ...this.games];
                 }
-                if(this.game.isInProgress()){
+                if(this.games[0].isInProgress()){
                     console.log('Game in progress, please try again later');
                     sendMsg(ws,{
                         result: "error",
@@ -65,7 +66,7 @@ class Socket {
                     return;
                 }
                 //if too much players are playing give error and just do nothing
-                if(this.game.getParticipantsCount() >= PARTICIPANTS_PER_GAME){
+                if(this.games[0].getParticipantsCount() >= PARTICIPANTS_PER_GAME){
                     console.log('Maximum number of participants reached');
                     sendMsg(ws,{
                         result: "error",
@@ -75,18 +76,18 @@ class Socket {
                 }
                 sendMsg(ws,{
                     result: "success",
-                    participantsCount: this.game.getParticipantsCount()+1,
+                    participantsCount: this.games[0].getParticipantsCount()+1,
                     participantsPerGame: PARTICIPANTS_PER_GAME,
                 },id);
 
                 //note that the new joiner would not get this message
-                broadcastMsg(this.game.getParticipantsSocket(), {
+                broadcastMsg(this.games[0].getParticipantsSocket(), {
                     event: "updateParticipantsCount",
-                    participantsCount: this.game.getParticipantsCount()+1,
+                    participantsCount: this.games[0].getParticipantsCount()+1,
                     participantsPerGame: PARTICIPANTS_PER_GAME,
                 })
 
-                this.game.addParticipantByInfo({
+                this.games[0].addParticipantByInfo({
                     id: id,
                     nickname: req.nickname || "Player",
                     socket: ws,
