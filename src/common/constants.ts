@@ -17,9 +17,9 @@ export const SHORTENED_TIME_MS = production ? 15 * 1000 : 15 * 1000; //15s
 export const ROUND_ZERO_DIGEST_TIME_MS = 2 * 1000; //2s
 
 //time given to players between rounds to digest information, the client does not know about this
-export const ROUND_INFO_DIGEST_TIME_MS = 10 * 1000; //7s
+export const ROUND_INFO_DIGEST_TIME_MS = 10 * 1000; //10s
 
 //time given to players to digest other normal information, the client does not know about this
 export const DIGEST_TIME_MS = 5 * 1000; //5s
 
-export const ACCEPTED_CLIENT_VERSIONS = ["20230912.0.cmd","20230912.0.app"]
+export const ACCEPTED_CLIENT_VERSIONS = ["20230912.1.cmd","20230912.1.app"]

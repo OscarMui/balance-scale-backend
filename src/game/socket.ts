@@ -80,13 +80,6 @@ class Socket {
                     participantsPerGame: PARTICIPANTS_PER_GAME,
                 },id);
 
-                //note that the new joiner would not get this message
-                broadcastMsg(this.games[0].getParticipantsSocket(), {
-                    event: "updateParticipantsCount",
-                    participantsCount: this.games[0].getParticipantsCount()+1,
-                    participantsPerGame: PARTICIPANTS_PER_GAME,
-                })
-
                 this.games[0].addParticipantByInfo({
                     id: id,
                     nickname: req.nickname || "Player",

@@ -16,6 +16,13 @@ class Game {
     getParticipantsCount = () => this.participants.length;
 
     addParticipantByInfo = ({socket,id,nickname}:{socket: WebSocket, id: string, nickname: string}) : void => {
+        //note that the new joiner would not get this message
+        broadcastMsg(this.getParticipantsSocket(), {
+            event: "updateParticipantsCount",
+            participantsCount: this.getParticipantsCount()+1,
+            participantsPerGame: PARTICIPANTS_PER_GAME,
+        })
+        
         this.participants.push({
             id: id,
             nickname: nickname,
@@ -37,7 +44,7 @@ class Game {
 
     isEnded = () => this.inProgress && this.getAliveCount() <= 1;
 
-    getParticipantsSocket = (filterFn? : (p: Participant) => boolean) => {
+    private getParticipantsSocket = (filterFn? : (p: Participant) => boolean) => {
         if(filterFn) return  this.participants.filter(filterFn).filter((p)=>p.socket && p.socket.readyState===WebSocket.OPEN).map((p)=>p.socket)
         else return this.participants.filter((p)=>p.socket && p.socket.readyState===WebSocket.OPEN).map((p)=>p.socket)
     }
@@ -277,8 +284,8 @@ class Game {
             round: round,
             gameEnded: this.isEnded(),
             aliveCount: this.getAliveCount(),
-            roundStartTime: roundStartTime,
-            roundEndTime: roundStartTime + ROUND_TIME_MS,
+            roundStartTime: roundStartTime - Date.now(),
+            roundEndTime: roundStartTime + ROUND_TIME_MS - Date.now(),
         } as GameStart);
         while(!this.isEnded()){
             let justDiedParticipants : Dead[] = [];
@@ -410,14 +417,20 @@ class Game {
             });
 
             round += 1;
-            roundStartTime = Date.now() + ROUND_INFO_DIGEST_TIME_MS;
+            if(justDiedParticipants.length > 0){
+                // even more time to digest
+                roundStartTime = Date.now() + ROUND_INFO_DIGEST_TIME_MS + DIGEST_TIME_MS;
+            }else{
+                roundStartTime = Date.now() + ROUND_INFO_DIGEST_TIME_MS;
+            }
+            
 
             this.addBroadcastGameEvent({
                 event: "gameInfo",
                 participants: participantGuesses,
                 round: round,
-                roundStartTime: roundStartTime,
-                roundEndTime: roundStartTime + ROUND_TIME_MS,
+                roundStartTime: roundStartTime - Date.now(),
+                roundEndTime: roundStartTime + ROUND_TIME_MS - Date.now(),
                 gameEnded: this.isEnded(),
                 aliveCount: this.getAliveCount(),
                 target: target,
@@ -456,6 +469,13 @@ class Game {
             }else{
                 console.log("handleClose: participant found and game hasn't started, just remove it")
                 this.participants = this.participants.filter((p)=>p.socket !== ws);
+
+                //tell everyone
+                broadcastMsg(this.getParticipantsSocket(), {
+                    event: "updateParticipantsCount",
+                    participantsCount: this.getParticipantsCount(),
+                    participantsPerGame: PARTICIPANTS_PER_GAME,
+                })
             }
         }else{
             console.log("handleClose: participant not found")
