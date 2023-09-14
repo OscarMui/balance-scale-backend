@@ -50,6 +50,8 @@ class Socket {
             try{
                 const req = (await recvMsg(ws)) as Req;
                 assert(req.method=="joinGame");
+                assert(/^[A-Za-z0-9_]+$/.test(req.nickname));
+                assert(req.nickname.length <= 12)
                 
                 this.games = this.games.filter((game)=>!game.isEnded())
 

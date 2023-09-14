@@ -259,8 +259,8 @@ class Game {
                 sendMsg(ws,{
                     event: "changeCountdown",
                     reason: reason,
-                    startTime: reason==="participantDisconnectedMidgame" ? eventTime + DIGEST_TIME_MS : undefined,
-                    endTime: endTime,
+                    startTime: reason==="participantDisconnectedMidgame" ? eventTime + DIGEST_TIME_MS - Date.now() : undefined,
+                    endTime: endTime - Date.now(),
                 } as ChangeCountdown);
 
                 clearTimeout(currentTimeout);
