@@ -1,7 +1,7 @@
 const production = true
 
 // Constants mainly for testing purposes
-export const PARTICIPANTS_PER_GAME = production ? 5 : 5;
+export const PARTICIPANTS_PER_GAME = production ? 5 : 2;
 export const DEAD_LIMIT = production ? -5 : -3;
 
 //tolerance time to network delays, the client does not know about this
@@ -22,4 +22,4 @@ export const ROUND_INFO_DIGEST_TIME_MS = 10 * 1000; //10s
 //time given to players to digest other normal information, the client does not know about this
 export const DIGEST_TIME_MS = 5 * 1000; //5s
 
-export const ACCEPTED_CLIENT_VERSIONS = ["20230912.1.cmd","20230912.1.app"]
+export const ACCEPTED_CLIENT_VERSIONS = ["20230912.2.cmd","20230912.2.app"]

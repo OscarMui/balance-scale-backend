@@ -417,7 +417,7 @@ class Game {
             });
 
             round += 1;
-            if(justDiedParticipants.length > 0){
+            if(justDiedParticipants.filter((d)=>d.reason!="disconnectedMidgame").length > 0){
                 // even more time to digest
                 roundStartTime = Date.now() + ROUND_INFO_DIGEST_TIME_MS + DIGEST_TIME_MS;
             }else{
