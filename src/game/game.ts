@@ -18,30 +18,38 @@ class Game {
     getParticipantsCount = () => this.participants.length;
 
     addPlayer(p: Player){
+        broadcastMsg(this.getParticipantsSocket(), {
+            event: "updateParticipantsCount",
+            participantsCount: this.getParticipantsCount()+1,
+            participantsPerGame: PARTICIPANTS_PER_GAME,
+        })
+
         this.participants.push(p)
         
         const socket = p.getSocket()
 
         socket.addEventListener('close', this.onClose);
         socket.addEventListener('error', this.onError);
+        
+        if(this.populateTimeout) clearTimeout(this.populateTimeout)
 
         if(this.getParticipantsCount()==PARTICIPANTS_PER_GAME){
             this.inProgress = true;
             this.gameBody();
+        }else{
+            this.populateTimeout = this.populateWithBots()
         }
-        if(this.populateTimeout) clearTimeout(this.populateTimeout)
-        this.populateTimeout = this.populateWithBots()
     }
 
     isInProgress = () => this.inProgress;
 
-    isEnded = () => this.inProgress && this.getAliveCount() <= 1 && this.getOnlineAliveCount();
+    isEnded = () => this.inProgress && (this.getAliveCount() <= 1 || this.getOnlineAliveCount() == 0);
 
     private populateWithBots(){
         return setTimeout(() => {
             console.log("populateWithBots timeout fired")
-            //only populate when there are players
-            if(this.getParticipantsCount()==0){
+            //only populate when there are players, and only when there are vacancies
+            if(this.getParticipantsCount()==0 || this.getParticipantsCount() == PARTICIPANTS_PER_GAME){
                 return
             }
             let seed = Math.floor(Math.random()*10000)
@@ -259,7 +267,7 @@ class Game {
                 const participant = participantList[0];
                 if(!participant.getInfo().isDead){
                     console.log("handleClose: participant found and game in progress, modifying its parameters")
-                    participant.getInfo().isDead = true;
+                    participant.setIsDead(true);
                 }else{
                     console.log("handleClose: participant found and game in progress, its parameters were modified by a previous call already")
                 }

@@ -21,6 +21,12 @@ export interface Participant {
     // return true if just died
     changeScore: (delta: number) => boolean,
     getSocket: () => WebSocket | null,
+    getId: () => string,
+    getNickname: () => string,
+    getScore: () => number,
+    getIsDead: () => boolean,
+    getIsBot: () => boolean,
+    setIsDead: (isDead: boolean) => void,
     // socket: WebSocket,
 }
 

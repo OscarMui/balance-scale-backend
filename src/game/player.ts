@@ -240,6 +240,25 @@ class Player implements Participant {
         return this.socket
     };
 
+    getId(){
+        return this.id
+    }
+    getNickname(){
+        return this.nickname
+    }
+    getScore(){
+        return this.score
+    }
+    getIsDead(){
+        return this.isDead
+    }
+    getIsBot(){
+        return this.isBot
+    }
+    setIsDead(isDead: boolean){
+        this.isDead = isDead
+    }
+
 }
 
 export default Player;
