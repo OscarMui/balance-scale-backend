@@ -1,14 +1,27 @@
 import {WebSocket} from 'ws';
+import {EventEmitter} from "node:events"
 
 export interface ParticipantInfo {
     id: string, 
     nickname: string,
     score: number,
     isDead: boolean,
+    isBot: boolean,
 }
 
-export interface Participant extends ParticipantInfo{
-    socket: WebSocket,
+export interface Participant {
+    makeGuess: (
+        emitter: EventEmitter,
+        roundStartTime: number, 
+        handleClose: (ws: WebSocket) => void,
+        addBroadcastGameEvent: (ge: GameEvent) => void,
+        getAliveCount: () => number,
+    ) => Promise<Object>,
+    getInfo: () => ParticipantInfo,
+    // return true if just died
+    changeScore: (delta: number) => boolean,
+    getSocket: () => WebSocket | null,
+    // socket: WebSocket,
 }
 
 export interface ParticipantGuess extends ParticipantInfo{
