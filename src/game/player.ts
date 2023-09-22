@@ -81,9 +81,11 @@ class Player implements Participant {
                 const eventTime = Date.now();
 
                 if(eventTime < roundStartTime){
+                    //update: in rare occasions messages might be sent during this time due to unstable network
+                    //TODO: clients should send the round number in when submitting the guesses
                     //indicate a potential malicious client
-                    errorWrapper();
-                    return;
+                    // errorWrapper();
+                    // return;
                 }
         
                 try{

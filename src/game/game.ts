@@ -1,6 +1,6 @@
 import * as WebSocket from 'ws';
 import {Dead, GameEvent, GameInfo, GameStart, Participant, ParticipantGuess, ParticipantInfo } from '../common/interfaces';
-import { DIGEST_TIME_MS, PARTICIPANTS_PER_GAME, POPULATE_BOTS_TIME_MS, ROUND_INFO_DIGEST_TIME_MS, ROUND_TIME_MS, ROUND_ZERO_DIGEST_TIME_MS } from '../common/constants';
+import { DIGEST_TIME_MS, PARTICIPANTS_PER_GAME, POPULATE_BOTS_TIME_MS, ROUND_INFO_DIGEST_TIME_MS, ROUND_LIMIT, ROUND_TIME_MS, ROUND_ZERO_DIGEST_TIME_MS } from '../common/constants';
 import { broadcastMsg } from '../common/messaging';
 import assert from '../common/assert';
 import { EventEmitter } from 'node:events';
@@ -94,7 +94,8 @@ class Game {
             roundStartTime: roundStartTime - Date.now(),
             roundEndTime: roundStartTime + ROUND_TIME_MS - Date.now(),
         } as GameStart);
-        while(!this.isEnded()){
+        // repeat until game ends or when round number exceeds the limit to prevent infinite loops
+        while(!this.isEnded() && round < ROUND_LIMIT){
             let justDiedParticipants : Dead[] = [];
             let justAppliedRules = new Set<number>()
 
