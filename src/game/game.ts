@@ -179,7 +179,7 @@ class Game {
 
                     //update the winners array
                     const diff = calDiff(req.guess);
-                    if(!winnersDiff || diff < winnersDiff){
+                    if(winnersDiff == null || diff < winnersDiff){
                         winners = [req.id];
                         winnersDiff = diff;
                     }else if(diff === winnersDiff) winners.push(req.id);
