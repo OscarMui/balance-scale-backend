@@ -3,7 +3,7 @@ import {ChangeCountdown, GameEvent, Participant, ParticipantDisconnectedMidgame,
 import { EventEmitter } from 'node:events';
 import { v4 as uuidv4 } from 'uuid';
 import assert from '../common/assert';
-import { DEAD_LIMIT, DIGEST_TIME_MS, NETWORK_DELAY_MS, ROUND_TIME_MS, SHORTENED_TIME_MS } from '../common/constants';
+import { DEAD_LIMIT, DIGEST_TIME_MS, NETWORK_DELAY_MS, ROUND_TIME_MS, SHORTENED_TIME_AMEND_MS, SHORTENED_TIME_MS } from '../common/constants';
 import { sendMsg } from '../common/messaging';
 
 class Player implements Participant {
@@ -185,7 +185,7 @@ class Player implements Participant {
 
             const changeCountdown = (eventTime : number, reason: "participantDisconnectedMidgame" | "allDecided") => {
                 const endTime = reason=="participantDisconnectedMidgame" ? 
-                                SHORTENED_TIME_MS + DIGEST_TIME_MS + eventTime: 
+                                SHORTENED_TIME_AMEND_MS + DIGEST_TIME_MS + eventTime: 
                                 SHORTENED_TIME_MS + eventTime;
                 const internalEndTime = endTime + NETWORK_DELAY_MS;
 
