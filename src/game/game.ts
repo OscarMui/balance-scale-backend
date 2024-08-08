@@ -194,7 +194,8 @@ class Game {
                 //if alive and not win: -1 score
                 if(!winners.includes(p.getInfo().id)){
                     // * 3 players remaining: If a player chooses the exact correct number, they win the round and all other players lose two points.
-                    if(reqs.length<=3 && winnersDiff && winnersDiff <= 0.5){
+                    // * Special treatment: This rule will not be activated if a player chooses 0 and the other chooses 1
+                    if(!(reqs.length == 2 && req.guess==1)&&(reqs.length<=3 && winnersDiff && winnersDiff <= 0.5)){
                         if(p.changeScore(-2)){
                             justDiedParticipants.push({
                                 id: p.getInfo().id,
