@@ -1,4 +1,4 @@
-const production = false
+const production = true
 
 // Constants mainly for testing purposes
 export const PARTICIPANTS_PER_GAME = production ? 5 : 3;
