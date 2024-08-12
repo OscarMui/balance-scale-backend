@@ -32,10 +32,3 @@ export const DIGEST_TIME_MS = 5 * 1000;
 export const POPULATE_BOTS_TIME_MS = production ? 15 * 1000 : 5 * 1000;
 
 export const ACCEPTED_CLIENT_VERSIONS = ["20240811.0.app","20240106.0.cmd","20240106.0.app","20230912.3.cmd","20230912.3.app"]
-
-export const TIPS = [
-    "Tenbin is now available on iOS! Share the game with your friends with an iPhone! App Store link is on the home page.",
-    "Would you like to give some feedback on the game? Or simply chat with others who are also interested in Tenbin? Join our Discord server! Link is on the home page.",
-    "Remember you can always review the rules by clicking the button on the top-right corner of the screen.",
-    "A new rule will be added when a player is eliminated. You can always review the new rules by clicking the rules button after this happens."
-]

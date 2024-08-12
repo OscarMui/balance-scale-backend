@@ -87,6 +87,12 @@ export interface Dead {
     reason: "disconnected" | "deadLimit" | "disconnectedMidgame",
 }
 
+export interface Tip {
+    message: string,
+    showFrom?: Date,
+    showTo?: Date,
+}
+
 // export enum Special {
 //     PLAYER_DEAD = 0,
 //     PLAYER_DISCONNECTED = 1,
