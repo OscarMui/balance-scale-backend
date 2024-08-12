@@ -14,6 +14,9 @@ const TIPS = [
         "message": "A new rule will be added when a player is eliminated. You can always review the new rules by clicking the rules button after this happens.",
     },
     {
+        "message": "You can change your number anytime before the time runs out.",
+    },
+    {
         "message": "We recently reached 500 downloads on Google Play, thanks for all your support!",
         "showTo": new Date(2024,9-1,30,0,0,0),
     },
