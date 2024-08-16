@@ -7,7 +7,7 @@ export default (req : Request,res : Response) => {
         result: "success",
         acceptedClientVersions: ACCEPTED_CLIENT_VERSIONS,
         preferredClientVersions: PREFERRED_CLIENT_VERSIONS,
-        // currentTime: Date.now(),
+        currentTime: Date.now(), //TODO: When version 20240106 is depreciated, remove this
         // allowedNetworkDelay: NETWORK_DELAY_MS,
         news: getNews(),
     })
