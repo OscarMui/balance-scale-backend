@@ -35,6 +35,12 @@ const TIPS = [
         "message": "You can change your number anytime before the time runs out.",
     },
     {
+        "message": "To clarify, this is an actual online game. Try joining with your friends at the same time and you will be in the same game!",
+    },
+    {
+        "message": "To clarify, this is an actual online game. However, the game may not be popular enough at the moment for there to be a constant flow of players.",
+    },
+    {
         "message": "We recently reached 500 downloads on Google Play, thanks for all your support!",
         "showTo": new Date(2024,9-1,30,0,0,0),
     },
