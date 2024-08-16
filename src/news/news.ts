@@ -20,7 +20,10 @@ const TIPS = [
     //     "message": "Tenbin is now available on iOS! Share the game with your friends with an iPhone! App Store link is on the home page.",
     // },
     {
-        "message": "Would you like to give some feedback on the game? Or simply chat with others who are also interested in Tenbin? Join our Discord server! Link is on the home page.",
+        "message": "Want to play with others on the internet? Join our Discord server! The link is on the home page.",
+    },
+    {
+        "message": "Would you like to give feedback on the game? Or chat with others who are also interested in Tenbin? Join our Discord server! The link is on the home page.",
     },
     {
         "message": "Remember you can always review the rules by clicking the button on the top-right corner of the screen.",
