@@ -93,6 +93,17 @@ export interface Tip {
     showTo?: Date,
 }
 
+export interface Announcement {
+    shortCode: string,
+    type: "client"|"server",
+    title?: string,
+    body?: string,
+    countdownTo?: Date,
+    showFrom?: Date,
+    showTo?: Date,
+}
+
+
 // export enum Special {
 //     PLAYER_DEAD = 0,
 //     PLAYER_DISCONNECTED = 1,

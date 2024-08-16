@@ -1,4 +1,19 @@
-import { Tip } from "./interfaces";
+import { Announcement, Tip } from "../common/interfaces";
+
+const ANNOUNCEMENTS = [
+    // {
+    //     "announcement": "app-store-launch",
+    // },
+    // {
+    //     "announcement": "google-play-launch",
+    // },
+    // {
+    //     "announcement": "testflight-launch",
+    // },
+    // {
+    //     "announcement": "on-the-hour",
+    // },
+] as Announcement[]
 
 const TIPS = [
     // {
@@ -22,11 +37,13 @@ const TIPS = [
     },
 ] as Tip[]
 
-export const getTip = () => {
+export const getNews = () => {
     const now = new Date();
-    const eligibleTipsMsg = TIPS
-        .filter((t)=>(t.showFrom==null || t.showFrom <= now) && (t.showTo == null || t.showTo >= now))
-        .map((t)=>t.message)
-    if(eligibleTipsMsg.length==0) return "";
-    return eligibleTipsMsg[Math.floor(Math.random()*eligibleTipsMsg.length)]
+    return  {
+        announcements: ANNOUNCEMENTS
+            .filter((t)=>(t.showFrom==null || t.showFrom <= now) && (t.showTo == null || t.showTo >= now)),
+        tips: TIPS
+            .filter((t)=>(t.showFrom==null || t.showFrom <= now) && (t.showTo == null || t.showTo >= now))
+            .map((t)=>t.message),
+    }
 }

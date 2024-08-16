@@ -31,4 +31,5 @@ export const DIGEST_TIME_MS = 5 * 1000;
 //waiting time before the room is populated with computer players
 export const POPULATE_BOTS_TIME_MS = production ? 15 * 1000 : 5 * 1000;
 
-export const ACCEPTED_CLIENT_VERSIONS = ["20240811.0.app","20240106.0.cmd","20240106.0.app","20230912.3.cmd","20230912.3.app"]
+export const PREFERRED_CLIENT_VERSIONS = ["20240815.0.app"]
+export const ACCEPTED_CLIENT_VERSIONS =  PREFERRED_CLIENT_VERSIONS.concat(["20240106.0.cmd","20240106.0.app"])

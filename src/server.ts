@@ -9,7 +9,7 @@ import session = require('express-session')
 
 import apiGetToken from "./api/getToken";
 import apiVersion from "./api/version";
-import { ACCEPTED_CLIENT_VERSIONS } from './common/constants';
+import { ACCEPTED_CLIENT_VERSIONS, PREFERRED_CLIENT_VERSIONS } from './common/constants';
 
 const app = express();
 
@@ -67,4 +67,5 @@ server.listen(process.env.PORT || 8999, () => {
     // @ts-ignore
     console.log(`Server started on port ${server.address().port} :)`);
     console.log(`Accepted client versions: ${ACCEPTED_CLIENT_VERSIONS}`)
+    console.log(`Preferred client versions: ${PREFERRED_CLIENT_VERSIONS}`)
 });
