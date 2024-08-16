@@ -8,7 +8,7 @@ export default (req : Request, res : Response) => {
     if(!ACCEPTED_CLIENT_VERSIONS.includes(query.version)){
         res.send({
             result: "error",
-            errorMsg: "VERSION ERROR: Incompatible version with server. Please obtain the latest version of the game.",
+            errorMsg: "VERSION ERROR: Incompatible version with server. You need to update the app in order to play online.",
         })
     }
 
