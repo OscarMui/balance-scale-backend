@@ -11,7 +11,7 @@ export const ROUND_LIMIT = 200;
 export const NETWORK_DELAY_MS = production ? 1000 : 1000;
 
 //time allowed per round
-export const ROUND_TIME_MS = production ? 2 * 60 * 1000 : 30 * 1000; 
+export const ROUND_TIME_MS = production ? 60 * 1000 : 30 * 1000; 
 
 //time allowed when every player has made their decision
 export const SHORTENED_TIME_MS = production ? 5 * 1000 : 5 * 1000;
