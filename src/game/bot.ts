@@ -1,4 +1,4 @@
-import * as WebSocket from 'ws';
+import WebSocket from 'ws';
 import { GameEvent, Participant } from '../common/interfaces';
 import { EventEmitter } from 'node:events';
 import { v4 as uuidv4 } from 'uuid';

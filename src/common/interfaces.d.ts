@@ -103,6 +103,12 @@ export interface Announcement {
     showTo?: Date,
 }
 
+export interface Statistic {
+    createdAt: Date,
+    numBots: number,
+    numPlayers: number,
+    target: number,
+}
 
 // export enum Special {
 //     PLAYER_DEAD = 0,

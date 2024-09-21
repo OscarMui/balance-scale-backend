@@ -1,4 +1,4 @@
-import * as WebSocket from 'ws';
+import WebSocket from 'ws';
 import {Participant, Req} from '../common/interfaces';
 import {broadcastMsg, recvMsg, sendMsg} from "../common/messaging";
 import assert from "../common/assert";

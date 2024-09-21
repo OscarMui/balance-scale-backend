@@ -1,10 +1,11 @@
-import * as express from 'express';
-import * as http from 'http';
-import * as WebSocket from 'ws';
+import express from 'express';
+import http from 'http';
+import WebSocket from 'ws';
 import Socket from './game/socket';
 
-
 import lessMiddleware = require('less-middleware');
+
+import admin from 'firebase-admin';
 
 import apiGetToken from "./api/getToken";
 import apiVersion from "./api/version";
@@ -22,6 +23,14 @@ const wsServer = new WebSocket.Server({
 });
 
 new Socket(wsServer);
+
+// Replace with your Firebase project's service account key file path
+import serviceAccount from './firebaseKey.json';
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
+  databaseURL: 'https://tenbin-b0279.firebaseio.com' // Replace with your project ID
+});
 
 //to allow POST request 
 app.use(express.json());

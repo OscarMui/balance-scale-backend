@@ -1,4 +1,5 @@
-import * as WebSocket from 'ws';
+import WebSocket from 'ws';
+
 import {Dead, GameEvent, GameInfo, GameStart, Participant, ParticipantGuess, ParticipantInfo } from '../common/interfaces';
 import { DIGEST_TIME_MS, PARTICIPANTS_PER_GAME, POPULATE_BOTS_TIME_MS, ROUND_INFO_DIGEST_TIME_MS, ROUND_LIMIT, ROUND_TIME_MS, ROUND_ZERO_DIGEST_TIME_MS } from '../common/constants';
 import { broadcastMsg } from '../common/messaging';
@@ -6,6 +7,7 @@ import assert from '../common/assert';
 import { EventEmitter } from 'node:events';
 import Bot from './bot';
 import Player from './player';
+import { createStatistic } from '../common/firestore';
 
 class Game {
     private participants : Participant[] = [];
@@ -231,7 +233,14 @@ class Game {
             }else{
                 roundStartTime = Date.now() + ROUND_INFO_DIGEST_TIME_MS;
             }
-            
+
+            // firestore
+            createStatistic({
+                createdAt: new Date(),
+                target: target,
+                numBots: this.getAliveCount()-this.getOnlineAliveCount(),
+                numPlayers: this.getOnlineAliveCount(),
+            })
 
             this.addBroadcastGameEvent({
                 event: "gameInfo",
