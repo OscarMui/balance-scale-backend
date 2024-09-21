@@ -5,7 +5,6 @@ import Socket from './game/socket';
 
 
 import lessMiddleware = require('less-middleware');
-import session = require('express-session')
 
 import apiGetToken from "./api/getToken";
 import apiVersion from "./api/version";
@@ -33,12 +32,6 @@ app.use(express.urlencoded({extended: true}));
 app.use(lessMiddleware('public'));
 app.use(express.static('public'));
 
-//express-session
-declare module 'express-session' {
-    interface SessionData {
-      views: number,
-    }
-}
 let sess = {
     secret: 'keyboard cat',
     cookie: {
@@ -49,7 +42,7 @@ if (app.get('env') === 'production') {
     app.set('trust proxy', 1) // trust first proxy
     sess.cookie.secure = true // serve secure cookies
 }
-app.use(session(sess))
+// app.use(session(sess))
 
 //ROUTING
 //views
