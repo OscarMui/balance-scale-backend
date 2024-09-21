@@ -16,9 +16,9 @@ const ANNOUNCEMENTS = [
 ] as Announcement[]
 
 const TIPS = [
-    // {
-    //     "message": "Tenbin is now available on iOS! Share the game with your friends with an iPhone! App Store link is on the home page.",
-    // },
+    {
+        "message": "Tenbin is now available on iOS! Share the game with your friends with an iPhone! App Store link is on the home page.",
+    },
     {
         "message": "Want to play with others on the internet? Join our Discord server! The link is on the home page.",
     },
@@ -38,10 +38,25 @@ const TIPS = [
         "message": "To clarify, this is an actual online game. Try joining with your friends at the same time and you will be in the same game!",
     },
     {
-        "message": "To clarify, this is an actual online game. However, the game may not be popular enough at the moment for there to be a constant flow of players.",
+        "message": "To clarify, this is an actual online game. Try joining with your friends at the same time and you will be in the same game!",
+    },
+    // {
+    //     "message": "To clarify, this is an actual online game. However, the game may not be popular enough at the moment for there to be a constant flow of players.",
+    // },
+    {
+        "message": "We recently reached 1000 downloads on Google Play, thanks for all your support!",
+        "showTo": new Date(2024,10-1,15,0,0,0),
     },
     {
-        "message": "We recently reached 500 downloads on Google Play, thanks for all your support!",
+        "message": "NEW: As an experiment, we shortened the time per round to 1 minute. Let me know if this is better on Discord. The link is on the home page.",
+        "showTo": new Date(2024,9-1,30,0,0,0),
+    },
+    {
+        "message": "NEW: As an experiment, we shortened the time per round to 1 minute. Let me know if this is better on Discord. The link is on the home page.",
+        "showTo": new Date(2024,9-1,30,0,0,0),
+    },
+    {
+        "message": "NEW: As an experiment, we shortened the time per round to 1 minute. Let me know if this is better on Discord. The link is on the home page.",
         "showTo": new Date(2024,9-1,30,0,0,0),
     },
 ] as Tip[]
