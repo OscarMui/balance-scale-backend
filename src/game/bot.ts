@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events';
 import { v4 as uuidv4 } from 'uuid';
 import { DEAD_LIMIT } from '../common/constants';
 import sleep from '../common/sleep';
-const BOT_NICKNAMES = ["Alice (BOT)","Clara (BOT)","Ellen (BOT)","Iris (BOT)","Kate (BOT)","Nora (BOT)","Sarah (BOT)"]
+const BOT_NICKNAMES = ["Alice","Clara","Ellen","Iris","Kate","Nora","Sarah"]
 
 class Bot implements Participant {
     private readonly id = uuidv4()
