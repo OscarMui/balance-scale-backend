@@ -7,6 +7,9 @@ export const DEAD_LIMIT = production ? -5 : -3;
 // max number of rounds permitted in a game to prevent infinite loops
 export const ROUND_LIMIT = 200;
 
+// max number of games permitted to prevent overloading of servers
+export const GAMES_LIMIT = 1000;
+
 //tolerance time to network delays, the client does not know about this
 export const NETWORK_DELAY_MS = production ? 1000 : 1000;
 
@@ -31,5 +34,5 @@ export const DIGEST_TIME_MS = 5 * 1000;
 //waiting time before the room is populated with computer players
 export const POPULATE_BOTS_TIME_MS = production ? 15 * 1000 : 5 * 1000;
 
-export const PREFERRED_CLIENT_VERSIONS = ["20240815.0.app"]
+export const PREFERRED_CLIENT_VERSIONS = ["20240815.0.app","20240922.0.app"]
 export const ACCEPTED_CLIENT_VERSIONS =  PREFERRED_CLIENT_VERSIONS.concat(["20240106.0.cmd","20240106.0.app"])

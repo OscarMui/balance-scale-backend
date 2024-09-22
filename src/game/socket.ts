@@ -4,7 +4,7 @@ import {broadcastMsg, recvMsg, sendMsg} from "../common/messaging";
 import assert from "../common/assert";
 import Game from './game';
 import Player from "./player";
-import { NETWORK_DELAY_MS, PARTICIPANTS_PER_GAME } from '../common/constants';
+import { GAMES_LIMIT, NETWORK_DELAY_MS, PARTICIPANTS_PER_GAME } from '../common/constants';
 
 class Socket {
     private readonly wsServer : WebSocket.Server;
@@ -50,6 +50,16 @@ class Socket {
                 assert(req.nickname.length <= 12)
                 
                 this.games = this.games.filter((game)=>!game.isEnded())
+                
+                //if too much games are happening give error and just do nothing
+                if(this.games[0].getParticipantsCount() >= GAMES_LIMIT){
+                    console.error('Maximum number of games reached');
+                    sendMsg(ws,{
+                        result: "error",
+                        errorMsg: "Maximum number of games reached",
+                    });
+                    return;
+                }
 
                 if(this.games.length == 0 || this.games[0].isInProgress()){
                     //start a new game
