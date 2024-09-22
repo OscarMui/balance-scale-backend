@@ -9,10 +9,11 @@ export default (req : Request, res : Response) => {
         res.send({
             result: "error",
             errorMsg: "VERSION ERROR: Incompatible version with server. You need to update the app in order to play online.",
-        })
+        });
+        return;
     }
 
     res.send({
         result: "success",
-    })
+    });
 };

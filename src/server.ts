@@ -9,6 +9,7 @@ import admin from 'firebase-admin';
 
 import apiGetToken from "./api/getToken";
 import apiVersion from "./api/version";
+
 import { ACCEPTED_CLIENT_VERSIONS, PREFERRED_CLIENT_VERSIONS } from './common/constants';
 
 const app = express();
@@ -22,7 +23,7 @@ const wsServer = new WebSocket.Server({
     path: "/game",
 });
 
-new Socket(wsServer);
+const socket = new Socket(wsServer);
 
 // Replace with your Firebase project's service account key file path
 import serviceAccount from './firebaseKey.json';
@@ -48,6 +49,8 @@ app.get('/',(req,res)=>{res.render("index");});
 //api
 app.get('/api/version',apiVersion);
 app.post('/api/getToken',apiGetToken);
+app.post('/api/gamesStatus',socket.gamesStatus);
+
 //app.set, app.use
 app.set("view engine","pug");
 app.set('views','templates/views/');

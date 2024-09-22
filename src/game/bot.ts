@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events';
 import { v4 as uuidv4 } from 'uuid';
 import { DEAD_LIMIT } from '../common/constants';
 import sleep from '../common/sleep';
-const BOT_NICKNAMES = ["Alice","Clara","Ellen","Iris","Kate","Nora","Sarah"]
+const BOT_NICKNAMES = ["Clara","Ellen","Iris","Kate","Nora","Sarah","Xandra"]
 
 class Bot implements Participant {
     private readonly id = uuidv4()
@@ -66,6 +66,8 @@ class Bot implements Participant {
     getSocket(){
         return null
     };
+
+    setSocket(ws: WebSocket){}
 
     getId(){
         return this.id

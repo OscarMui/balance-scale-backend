@@ -1,4 +1,6 @@
 import WebSocket from 'ws';
+import { Request, Response } from 'express';
+
 import {Participant, Req} from '../common/interfaces';
 import {broadcastMsg, recvMsg, sendMsg} from "../common/messaging";
 import assert from "../common/assert";
@@ -42,58 +44,72 @@ class Socket {
                 result: "success",
             });
 
-            //receive one message from the client, expect it to be joinGame
+            //receive one message from the client, expect it to be joinGame, or reconnectGame, and handle them almost entirely differently
             try{
                 const req = (await recvMsg(ws)) as Req;
-                assert(req.method=="joinGame");
-                assert(/^[A-Za-z0-9_]+$/.test(req.nickname));
-                assert(req.nickname.length <= 12)
-                
-                this.games = this.games.filter((game)=>!game.isEnded())
-                
-                //if too much games are happening give error and just do nothing
-                if(this.games[0].getParticipantsCount() >= GAMES_LIMIT){
-                    console.error('Maximum number of games reached');
-                    sendMsg(ws,{
-                        result: "error",
-                        errorMsg: "Maximum number of games reached",
-                    });
-                    return;
-                }
+                if(req.method=="joinGame"){
+                    assert(/^[A-Za-z0-9_]+$/.test(req.nickname));
+                    assert(req.nickname.length <= 12)
+                    
+                    this.games = this.games.filter((game)=>!game.isEnded())
+                    
+                    //if too much games are happening give error and just do nothing
+                    if(this.games[0].getParticipantsCount() >= GAMES_LIMIT){
+                        console.error('Maximum number of games reached');
+                        sendMsg(ws,{
+                            result: "error",
+                            errorMsg: "Maximum number of games reached",
+                        });
+                        return;
+                    }
 
-                if(this.games.length == 0 || this.games[0].isInProgress()){
-                    //start a new game
-                    this.games = [new Game(), ...this.games];
-                }
-                if(this.games[0].isInProgress()){
-                    console.log('Game in progress, please try again later');
-                    sendMsg(ws,{
-                        result: "error",
-                        errorMsg: "Game in progress, please try again later",
-                    });
-                    return;
-                }
-                //if too much players are playing give error and just do nothing
-                if(this.games[0].getParticipantsCount() >= PARTICIPANTS_PER_GAME){
-                    console.log('Maximum number of participants reached');
-                    sendMsg(ws,{
-                        result: "error",
-                        errorMsg: "Maximum number of participants reached",
-                    });
-                    return;
-                }
+                    if(this.games.length == 0 || this.games[0].isInProgress()){
+                        //start a new game
+                        this.games = [new Game(), ...this.games];
+                    }
+                    if(this.games[0].isInProgress()){
+                        console.log('Game in progress, please try again later');
+                        sendMsg(ws,{
+                            result: "error",
+                            errorMsg: "Game in progress, please try again later",
+                        });
+                        return;
+                    }
+                    //if too much players are playing give error and just do nothing
+                    if(this.games[0].getParticipantsCount() >= PARTICIPANTS_PER_GAME){
+                        console.log('Maximum number of participants reached');
+                        sendMsg(ws,{
+                            result: "error",
+                            errorMsg: "Maximum number of participants reached",
+                        });
+                        return;
+                    }
 
-                const p = new Player(ws,req.nickname) 
-                sendMsg(ws,{
-                    result: "success",
-                    participantsCount: this.games[0].getParticipantsCount()+1,
-                    participantsPerGame: PARTICIPANTS_PER_GAME,
-                    id: p.getInfo().id
-                });
+                    const p = new Player(ws,req.nickname) 
+                    sendMsg(ws,{
+                        result: "success",
+                        participantsCount: this.games[0].getParticipantsCount()+1,
+                        participantsPerGame: PARTICIPANTS_PER_GAME,
+                        id: p.getInfo().id
+                    });
 
-                this.games[0].addPlayer(p)
+                    this.games[0].addPlayer(p)
+                }else{
+                    assert(req.method=="reconnectGame")
+                    const pid = req.pid;
+
+                    this.getGameFromPid(pid).updateParticipantSocketByPid(pid,ws);
+
+                    sendMsg(ws,{
+                        result: "success",
+                        participantsCount: this.games[0].getParticipantsCount()+1,
+                        participantsPerGame: PARTICIPANTS_PER_GAME,
+                        id: pid,
+                    });
+                    
+                }
             }catch(e){
-                console.log("Error with joinGame request, connection terminated with client.")
+                console.log("Error with joinGame/ reconnectGame request, connection terminated with client.")
                 ws.close();
             }
             
@@ -108,6 +124,38 @@ class Socket {
             // });
         });
     }
+    
+    private getDisconnectedPlayers = () => 
+        this.games
+            .filter((game)=>!game.isEnded())
+            .map((g)=>g.getDisconnectedParticipants())
+            .flat()
+            .map((p)=>p.getId());
+
+    private getGameFromPid = (pid: string) => 
+        this.games
+            .filter((game)=>!game.isEnded())
+            .filter((g)=>g.getDisconnectedParticipants().map((p)=>p.getId()).includes(pid))[0];
+        
+
+    gamesStatus = (req : Request, res : Response) => {
+        //POST REQUEST
+        const {pid} = req.body;
+        
+        if(this.getDisconnectedPlayers().includes(pid)){
+            res.send({
+                result: "success",
+                canReconnect: true,
+            })
+        }else{
+            res.send({
+                result: "success",
+                canReconnect: false,
+            })
+        }
+        
+    };
+
     
 }
 

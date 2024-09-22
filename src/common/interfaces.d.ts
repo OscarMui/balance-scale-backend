@@ -21,6 +21,7 @@ export interface Participant {
     // return true if just died
     changeScore: (delta: number) => boolean,
     getSocket: () => WebSocket | null,
+    setSocket: (ws: WebSocket) => void,
     getId: () => string,
     getNickname: () => string,
     getScore: () => number,
@@ -108,6 +109,7 @@ export interface Statistic {
     numBots: number,
     numPlayers: number,
     target: number,
+    round: number,
 }
 
 // export enum Special {

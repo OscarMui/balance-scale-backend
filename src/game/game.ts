@@ -1,8 +1,9 @@
 import WebSocket from 'ws';
+import { v4 as uuidv4 } from 'uuid';
 
 import {Dead, GameEvent, GameInfo, GameStart, Participant, ParticipantGuess, ParticipantInfo } from '../common/interfaces';
 import { DIGEST_TIME_MS, PARTICIPANTS_PER_GAME, POPULATE_BOTS_TIME_MS, ROUND_INFO_DIGEST_TIME_MS, ROUND_LIMIT, ROUND_TIME_MS, ROUND_ZERO_DIGEST_TIME_MS } from '../common/constants';
-import { broadcastMsg } from '../common/messaging';
+import { broadcastMsg, sendMsg } from '../common/messaging';
 import assert from '../common/assert';
 import { EventEmitter } from 'node:events';
 import Bot from './bot';
@@ -14,9 +15,14 @@ class Game {
     private inProgress: boolean = false;
     private gameEvents : GameEvent[] = [];
     private populateTimeout : NodeJS.Timeout | null = null
+    private readonly id = uuidv4();
+    private round : number = 1;
+    private roundStartTime : number = 0;
 
     constructor(){}
     
+    getId = () => this.id;
+
     getParticipantsCount = () => this.participants.length;
 
     addPlayer(p: Player){
@@ -47,6 +53,23 @@ class Game {
 
     isEnded = () => this.inProgress && (this.getAliveCount() <= 1 || this.getOnlineAliveCount() == 0);
 
+    // requirements: an actual human, isDead, but have not reached -5 score
+    getDisconnectedParticipants = () => this.participants.filter((p)=>p.getInfo().isDead && !p.getInfo().isBot && p.getInfo().score > -5);
+
+    updateParticipantSocketByPid = (pid: string, ws: WebSocket) => {
+        const p = this.participants.filter((p) => p.getInfo().id===pid)[0];
+        p.setSocket(ws);
+        sendMsg(ws,{
+            event: "gameStart",
+            participants: this.getParticipantsInfo(),
+            round: this.round,
+            gameEnded: this.isEnded(),
+            aliveCount: this.getAliveCount(),
+            roundStartTime: this.roundStartTime - Date.now(),
+            roundEndTime: this.roundStartTime + ROUND_TIME_MS - Date.now(),
+        } as GameStart);
+    }
+    
     private populateWithBots(){
         return setTimeout(() => {
             console.log("populateWithBots timeout fired")
@@ -85,19 +108,19 @@ class Game {
     }
 
     private gameBody = async () => {
-        let round = 1;
-        let roundStartTime = Date.now() + ROUND_ZERO_DIGEST_TIME_MS; //shorter digest time for round 0
+        this.round = 1;
+        this.roundStartTime = Date.now() + ROUND_ZERO_DIGEST_TIME_MS; //shorter digest time for round 0
         this.addBroadcastGameEvent({
             event: "gameStart",
             participants: this.getParticipantsInfo(),
-            round: round,
+            round: this.round,
             gameEnded: this.isEnded(),
             aliveCount: this.getAliveCount(),
-            roundStartTime: roundStartTime - Date.now(),
-            roundEndTime: roundStartTime + ROUND_TIME_MS - Date.now(),
+            roundStartTime: this.roundStartTime - Date.now(),
+            roundEndTime: this.roundStartTime + ROUND_TIME_MS - Date.now(),
         } as GameStart);
         // repeat until game ends or when round number exceeds the limit to prevent infinite loops
-        while(!this.isEnded() && round < ROUND_LIMIT){
+        while(!this.isEnded() && this.round < ROUND_LIMIT){
             let justDiedParticipants : Dead[] = [];
             let justAppliedRules = new Set<number>()
 
@@ -112,7 +135,7 @@ class Game {
                     .filter((p)=>!p.getInfo().isDead)
                     .map((p)=>p.makeGuess(
                         emitter,
-                        roundStartTime,
+                        this.roundStartTime,
                         this.handleClose,
                         this.addBroadcastGameEvent,
                         this.getAliveCount,
@@ -226,12 +249,12 @@ class Game {
                 }
             });
 
-            round += 1;
+            this.round += 1;
             if(justDiedParticipants.filter((d)=>d.reason!="disconnectedMidgame").length > 0){
                 // even more time to digest
-                roundStartTime = Date.now() + ROUND_INFO_DIGEST_TIME_MS + DIGEST_TIME_MS;
+                this.roundStartTime = Date.now() + ROUND_INFO_DIGEST_TIME_MS + DIGEST_TIME_MS;
             }else{
-                roundStartTime = Date.now() + ROUND_INFO_DIGEST_TIME_MS;
+                this.roundStartTime = Date.now() + ROUND_INFO_DIGEST_TIME_MS;
             }
 
             // firestore
@@ -240,14 +263,15 @@ class Game {
                 target: target,
                 numBots: this.getAliveCount()-this.getOnlineAliveCount(),
                 numPlayers: this.getOnlineAliveCount(),
+                round: this.round,
             })
 
             this.addBroadcastGameEvent({
                 event: "gameInfo",
                 participants: participantGuesses,
-                round: round,
-                roundStartTime: roundStartTime - Date.now(),
-                roundEndTime: roundStartTime + ROUND_TIME_MS - Date.now(),
+                round: this.round,
+                roundStartTime: this.roundStartTime - Date.now(),
+                roundEndTime: this.roundStartTime + ROUND_TIME_MS - Date.now(),
                 gameEnded: this.isEnded(),
                 aliveCount: this.getAliveCount(),
                 target: target,
@@ -295,12 +319,12 @@ class Game {
                 })
             }
         }else{
-            console.log("handleClose: participant not found")
+            console.error("handleClose: participant not found")
         }
     }
 
     private onError = (event: WebSocket.ErrorEvent) => {
-        console.log("onError fired in game.ts")
+        console.error("onError fired in game.ts")
         //instead of throwing an error, close connection 
         if(event.target.readyState !== WebSocket.CLOSED)
             event.target.close();

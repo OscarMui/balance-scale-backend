@@ -8,7 +8,7 @@ import { sendMsg } from '../common/messaging';
 
 class Player implements Participant {
     private readonly id = uuidv4()
-    private readonly socket : WebSocket;
+    private socket : WebSocket;
     private readonly nickname : string;
     private readonly isBot = false;
     private score = 0;
@@ -241,6 +241,10 @@ class Player implements Participant {
     getSocket(){
         return this.socket
     };
+
+    setSocket(ws: WebSocket){
+        this.socket = ws;
+    }
 
     getId(){
         return this.id
