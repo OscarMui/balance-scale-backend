@@ -1,8 +1,8 @@
 import WebSocket from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 
-import {Dead, GameEvent, GameInfo, GameStart, Participant, ParticipantGuess, ParticipantInfo } from '../common/interfaces';
-import { DIGEST_TIME_MS, PARTICIPANTS_PER_GAME, POPULATE_BOTS_TIME_MS, ROUND_INFO_DIGEST_TIME_MS, ROUND_LIMIT, ROUND_TIME_MS, ROUND_ZERO_DIGEST_TIME_MS } from '../common/constants';
+import {Dead, Disconnected, GameEvent, GameInfo, GameStart, Participant, ParticipantGuess, ParticipantInfo, Reconnected } from '../common/interfaces';
+import { DEAD_LIMIT, DIGEST_TIME_MS, PARTICIPANTS_PER_GAME, ParticipantStatus, POPULATE_BOTS_TIME_MS, ROUND_INFO_DIGEST_TIME_MS, ROUND_LIMIT, ROUND_TIME_MS, ROUND_ZERO_DIGEST_TIME_MS } from '../common/constants';
 import { broadcastMsg, sendMsg } from '../common/messaging';
 import assert from '../common/assert';
 import { EventEmitter } from 'node:events';
@@ -12,12 +12,13 @@ import { createStatistic } from '../common/firestore';
 
 class Game {
     private participants : Participant[] = [];
-    private inProgress: boolean = false;
+    private inProgress: boolean = false; //flag that is forever set to true once the game has enough participants
     private gameEvents : GameEvent[] = [];
     private populateTimeout : NodeJS.Timeout | null = null
     private readonly id = uuidv4();
     private round : number = 1;
     private roundStartTime : number = 0;
+    private justReconnectedParticipants: Reconnected[] = [];
 
     constructor(){}
     
@@ -51,23 +52,18 @@ class Game {
 
     isInProgress = () => this.inProgress;
 
-    isEnded = () => this.inProgress && (this.getAliveCount() <= 1 || this.getOnlineAliveCount() == 0);
+    isEnded = () => this.inProgress && (this.getActiveCount() <= 1 || this.getHumanActiveCount() == 0);
 
-    // requirements: an actual human, isDead, but have not reached -5 score
-    getDisconnectedParticipants = () => this.participants.filter((p)=>p.getInfo().isDead && !p.getInfo().isBot && p.getInfo().score > -5);
+    // requirements: disconnected but not dead, and at least 3 points away from dying
+    getCanReconnectParticipants = () => this.participants.filter((p)=>p.getInfo().status===ParticipantStatus.Disconnected && p.getInfo().score > DEAD_LIMIT+2);
 
-    updateParticipantSocketByPid = (pid: string, ws: WebSocket) => {
+    reconnectParticipantByPid = (pid: string, ws: WebSocket) => {
         const p = this.participants.filter((p) => p.getInfo().id===pid)[0];
         p.setSocket(ws);
-        sendMsg(ws,{
-            event: "gameStart",
-            participants: this.getParticipantsInfo(),
-            round: this.round,
-            gameEnded: this.isEnded(),
-            aliveCount: this.getAliveCount(),
-            roundStartTime: this.roundStartTime - Date.now(),
-            roundEndTime: this.roundStartTime + ROUND_TIME_MS - Date.now(),
-        } as GameStart);
+        this.justReconnectedParticipants.push({
+            id: pid,
+            reason: "reconnected",
+        });
     }
     
     private populateWithBots(){
@@ -97,9 +93,9 @@ class Game {
         return this.participants.map((p)=>p.getInfo() as ParticipantInfo)
     }
 
-    private getAliveCount = () => this.participants.filter((p)=>!p.getInfo().isDead).length
+    private getActiveCount = () => this.participants.filter((p)=>p.getInfo().status === ParticipantStatus.Active).length
 
-    private getOnlineAliveCount = () => this.participants.filter((p)=>!p.getInfo().isDead && !p.getInfo().isBot).length
+    private getHumanActiveCount = () => this.participants.filter((p)=>p.getInfo().status === ParticipantStatus.Active && !p.getInfo().isBot).length
 
     private addBroadcastGameEvent = (ge: GameEvent) => {
         const sockets = this.getParticipantsSocket();
@@ -115,7 +111,7 @@ class Game {
             participants: this.getParticipantsInfo(),
             round: this.round,
             gameEnded: this.isEnded(),
-            aliveCount: this.getAliveCount(),
+            activeCount: this.getActiveCount(),
             roundStartTime: this.roundStartTime - Date.now(),
             roundEndTime: this.roundStartTime + ROUND_TIME_MS - Date.now(),
         } as GameStart);
@@ -123,22 +119,24 @@ class Game {
         while(!this.isEnded() && this.round < ROUND_LIMIT){
             let justDiedParticipants : Dead[] = [];
             let justAppliedRules = new Set<number>()
+            let justDisconnectedParticipants : Disconnected[] = [];
+            this.justReconnectedParticipants = [];
 
             //a blank target just for obtaining the custom events
             const emitter = new EventEmitter();
 
             // get one message from every participant that is alive
+
+            const activeParticipants = this.participants.filter((p)=>p.getInfo().status === ParticipantStatus.Active);
+
             const requests = await Promise.allSettled(
-                this.participants
-                    //@ts-ignore       
-                    .filter((p)=>p.getSocket()==null || p.getSocket().readyState===WebSocket.OPEN)
-                    .filter((p)=>!p.getInfo().isDead)
+                activeParticipants
                     .map((p)=>p.makeGuess(
                         emitter,
                         this.roundStartTime,
                         this.handleClose,
                         this.addBroadcastGameEvent,
-                        this.getAliveCount,
+                        activeParticipants.length
                     ))
             )
 
@@ -150,7 +148,7 @@ class Game {
                 if(request.status==="fulfilled"){
                     const value = request.value as {id: string, guess: number, stillAlive: boolean}
                     if(!value.stillAlive){
-                        justDiedParticipants.push({
+                        justDisconnectedParticipants.push({
                             id: value.id,
                             reason: "disconnected",
                         })
@@ -158,7 +156,7 @@ class Game {
                     reqs.push(value)
                 }else{
                     const reason = request.reason as {id: string}
-                    justDiedParticipants.push({
+                    justDisconnectedParticipants.push({
                         id: reason.id,
                         reason: "disconnectedMidgame"
                     })
@@ -238,6 +236,16 @@ class Game {
                     }
                 }
             })
+            
+            //cannot just search for disconnected players, as their status can become reconnected again
+            this.participants.filter((p)=>p.getInfo().status !== ParticipantStatus.Dead && !reqs.map(req=>req.id).includes(p.getInfo().id)).forEach((p)=>{
+                if(p.changeScore(-2)){
+                    justDiedParticipants.push({
+                        id: p.getInfo().id,
+                        reason: "deadLimit",
+                    })
+                }
+            });
 
             //create new obj that includes the guesses
             let participantGuesses : ParticipantGuess[] = this.getParticipantsInfo().map((p)=>{
@@ -250,7 +258,7 @@ class Game {
             });
 
             this.round += 1;
-            if(justDiedParticipants.filter((d)=>d.reason!="disconnectedMidgame").length > 0){
+            if(justDiedParticipants.length > 0){
                 // even more time to digest
                 this.roundStartTime = Date.now() + ROUND_INFO_DIGEST_TIME_MS + DIGEST_TIME_MS;
             }else{
@@ -261,8 +269,8 @@ class Game {
             createStatistic({
                 createdAt: new Date(),
                 target: target,
-                numBots: this.getAliveCount()-this.getOnlineAliveCount(),
-                numPlayers: this.getOnlineAliveCount(),
+                numBots: this.getActiveCount()-this.getHumanActiveCount(),
+                numPlayers: this.getHumanActiveCount(),
                 round: this.round,
             })
 
@@ -273,11 +281,13 @@ class Game {
                 roundStartTime: this.roundStartTime - Date.now(),
                 roundEndTime: this.roundStartTime + ROUND_TIME_MS - Date.now(),
                 gameEnded: this.isEnded(),
-                aliveCount: this.getAliveCount(),
+                activeCount: this.getActiveCount(),
                 target: target,
                 winners: winners,
                 justDiedParticipants: justDiedParticipants,
                 justAppliedRules: [...justAppliedRules],
+                justDisconnectedParticipants: justDisconnectedParticipants,
+                justReconnectedParticipants: this.justReconnectedParticipants,
             } as GameInfo);
         }
         console.log("game ended");
@@ -294,19 +304,13 @@ class Game {
     private handleClose = (ws: WebSocket) => {
         console.log("handleClose called in game.ts")
 
-        //instead of throwing an error, just treat the client as game over
         const participantList = this.participants.filter((p)=>p.getSocket() === ws);
-        // console.log(participantList);
+
         if(participantList.length > 0){
             if(this.isInProgress()){
                 const participant = participantList[0];
-                if(!participant.getInfo().isDead){
-                    console.log("handleClose: participant found and game in progress, modifying its parameters")
-                    participant.setIsDead(true);
-                }else{
-                    console.log("handleClose: participant found and game in progress, its parameters were modified by a previous call already")
-                }
-                
+                console.log("handleClose: participant left, remove it from the reconnected array if it is there")
+                this.justReconnectedParticipants = this.justReconnectedParticipants.filter((j)=>j.id != participant.getInfo().id);
             }else{
                 console.log("handleClose: participant found and game hasn't started, just remove it")
                 this.participants = this.participants.filter((p)=>p.getSocket() !== ws);

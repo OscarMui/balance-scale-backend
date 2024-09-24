@@ -54,7 +54,7 @@ class Socket {
                     this.games = this.games.filter((game)=>!game.isEnded())
                     
                     //if too much games are happening give error and just do nothing
-                    if(this.games[0].getParticipantsCount() >= GAMES_LIMIT){
+                    if(this.games.length >= GAMES_LIMIT){
                         console.error('Maximum number of games reached');
                         sendMsg(ws,{
                             result: "error",
@@ -98,18 +98,18 @@ class Socket {
                     assert(req.method=="reconnectGame")
                     const pid = req.pid;
 
-                    this.getGameFromPid(pid).updateParticipantSocketByPid(pid,ws);
+                    this.getGameFromPid(pid).reconnectParticipantByPid(pid,ws);
 
                     sendMsg(ws,{
                         result: "success",
-                        participantsCount: this.games[0].getParticipantsCount()+1,
+                        participantsCount: this.games[0].getParticipantsCount(),
                         participantsPerGame: PARTICIPANTS_PER_GAME,
                         id: pid,
                     });
                     
                 }
             }catch(e){
-                console.log("Error with joinGame/ reconnectGame request, connection terminated with client.")
+                console.log("Error with joinGame/ reconnectGame request, connection terminated with client.",e)
                 ws.close();
             }
             
@@ -128,14 +128,14 @@ class Socket {
     private getDisconnectedPlayers = () => 
         this.games
             .filter((game)=>!game.isEnded())
-            .map((g)=>g.getDisconnectedParticipants())
+            .map((g)=>g.getCanReconnectParticipants())
             .flat()
-            .map((p)=>p.getId());
+            .map((p)=>p.getInfo().id);
 
     private getGameFromPid = (pid: string) => 
         this.games
             .filter((game)=>!game.isEnded())
-            .filter((g)=>g.getDisconnectedParticipants().map((p)=>p.getId()).includes(pid))[0];
+            .filter((g)=>g.getCanReconnectParticipants().map((p)=>p.getInfo().id).includes(pid))[0];
         
 
     gamesStatus = (req : Request, res : Response) => {

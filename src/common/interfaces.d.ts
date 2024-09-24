@@ -1,11 +1,12 @@
 import {WebSocket} from 'ws';
 import {EventEmitter} from "node:events"
+import { ParticipantStatus } from './constants';
 
 export interface ParticipantInfo {
     id: string, 
     nickname: string,
     score: number,
-    isDead: boolean,
+    status: ParticipantStatus,
     isBot: boolean,
 }
 
@@ -15,19 +16,13 @@ export interface Participant {
         roundStartTime: number, 
         handleClose: (ws: WebSocket) => void,
         addBroadcastGameEvent: (ge: GameEvent) => void,
-        getAliveCount: () => number,
+        total: number,
     ) => Promise<Object>,
     getInfo: () => ParticipantInfo,
     // return true if just died
     changeScore: (delta: number) => boolean,
     getSocket: () => WebSocket | null,
     setSocket: (ws: WebSocket) => void,
-    getId: () => string,
-    getNickname: () => string,
-    getScore: () => number,
-    getIsDead: () => boolean,
-    getIsBot: () => boolean,
-    setIsDead: (isDead: boolean) => void,
     // socket: WebSocket,
 }
 
@@ -51,7 +46,7 @@ export interface GameStart extends GameEvent {
     roundStartTime: number,
     roundEndTime: number,
     gameEnded: boolean,
-    aliveCount: number,
+    activeCount: number,
 }
 
 export interface GameInfo extends GameEvent {
@@ -59,13 +54,15 @@ export interface GameInfo extends GameEvent {
     participants: ParticipantGuess[],
     round: number,
     gameEnded: boolean,
-    aliveCount: number,
+    activeCount: number,
     target: number,
     winners: string[], //winners id
     roundStartTime: number,
     roundEndTime: number,
     //properties that start with just emphasizes that they represents the change in state but not the current state
     justDiedParticipants: Dead[],
+    justDisconnectedParticipants: Disconnected[],
+    justReconnectedParticipants: Reconnected[],
     justAppliedRules: (2 | 3 | 4)[],
 }
 
@@ -79,13 +76,22 @@ export interface ChangeCountdown extends GameEvent {
 
 export interface ParticipantDisconnectedMidgame extends GameEvent {
     event: "participantDisconnectedMidgame",
-    aliveCount: number,
     id: string,
 }
 
 export interface Dead {
     id: string,
-    reason: "disconnected" | "deadLimit" | "disconnectedMidgame",
+    reason: "deadLimit",
+}
+
+export interface Disconnected {
+    id: string,
+    reason: "disconnected" | "disconnectedMidgame",
+}
+
+export interface Reconnected {
+    id: string,
+    reason: "reconnected",
 }
 
 export interface Tip {

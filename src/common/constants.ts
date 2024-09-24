@@ -1,8 +1,18 @@
 const production = true
 
+export const PREFERRED_CLIENT_VERSIONS = ["20240922.0.app"]
+export const ACCEPTED_CLIENT_VERSIONS =  PREFERRED_CLIENT_VERSIONS.concat([])
+
+
+
+export enum ParticipantStatus { 
+    Active = "active", 
+    Disconnected = "disconnected", 
+    Dead = "dead"
+}
 // Constants mainly for testing purposes
 export const PARTICIPANTS_PER_GAME = production ? 5 : 3;
-export const DEAD_LIMIT = production ? -5 : -3;
+export const DEAD_LIMIT = production ? -7 : -3;
 
 // max number of rounds permitted in a game to prevent infinite loops
 export const ROUND_LIMIT = 200;
@@ -20,7 +30,7 @@ export const ROUND_TIME_MS = production ? 60 * 1000 : 30 * 1000;
 export const SHORTENED_TIME_MS = production ? 5 * 1000 : 5 * 1000;
 
 //time allowed for players to amend their guesses when disconnected
-export const SHORTENED_TIME_AMEND_MS = production ? 30 * 1000 : 5 * 1000;
+export const SHORTENED_TIME_AMEND_MS = production ? 15 * 1000 : 5 * 1000;
 
 //time given to players before round 0 first, 7 seconds seem too long, the client does not know about this
 export const ROUND_ZERO_DIGEST_TIME_MS = 2 * 1000;
@@ -33,6 +43,3 @@ export const DIGEST_TIME_MS = 5 * 1000;
 
 //waiting time before the room is populated with computer players
 export const POPULATE_BOTS_TIME_MS = production ? 15 * 1000 : 5 * 1000;
-
-export const PREFERRED_CLIENT_VERSIONS = ["20240815.0.app","20240922.0.app"]
-export const ACCEPTED_CLIENT_VERSIONS =  PREFERRED_CLIENT_VERSIONS.concat(["20240106.0.cmd","20240106.0.app"])

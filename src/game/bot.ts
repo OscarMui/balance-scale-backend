@@ -2,7 +2,7 @@ import WebSocket from 'ws';
 import { GameEvent, Participant } from '../common/interfaces';
 import { EventEmitter } from 'node:events';
 import { v4 as uuidv4 } from 'uuid';
-import { DEAD_LIMIT } from '../common/constants';
+import { DEAD_LIMIT, ParticipantStatus } from '../common/constants';
 import sleep from '../common/sleep';
 const BOT_NICKNAMES = ["Clara","Ellen","Iris","Kate","Nora","Sarah","Xandra"]
 
@@ -11,8 +11,7 @@ class Bot implements Participant {
     private readonly nickname : string;
     private readonly isBot = true;
     private score = 0;
-    private isDead = false;
-    private upperLimit = 100
+    private upperLimit = 100;
 
     constructor(seed: number){
         // seed given by caller to generate unique names for each game
@@ -24,7 +23,7 @@ class Bot implements Participant {
         roundStartTime: number, 
         handleClose: (ws: WebSocket) => void,
         addBroadcastGameEvent: (ge: GameEvent) => void,
-        getAliveCount: () => number,
+        total: number,
     ) : Promise<Object> => {
         return new Promise(async (resolve, reject) => {
             
@@ -34,7 +33,7 @@ class Bot implements Participant {
 
             resolve({
                 id: this.id,
-                guess: this.guess(getAliveCount()),
+                guess: this.guess(total),
                 stillAlive: true,
             })
         });
@@ -46,7 +45,7 @@ class Bot implements Participant {
             nickname: this.nickname,
             isBot: this.isBot,
             score: this.score,
-            isDead: this.isDead,
+            status: this.score <= DEAD_LIMIT ? ParticipantStatus.Dead : ParticipantStatus.Active,
         }
     };
 
@@ -55,10 +54,7 @@ class Bot implements Participant {
         // dead if DEAD_LIMIT score or worse
         if(this.score <= DEAD_LIMIT){
             this.score = DEAD_LIMIT; //display -10 instead of -11 or sth
-            if(!this.isDead){
-                this.isDead = true;
-                return true
-            }
+            return true
         }
         return false
     };
@@ -68,25 +64,6 @@ class Bot implements Participant {
     };
 
     setSocket(ws: WebSocket){}
-
-    getId(){
-        return this.id
-    }
-    getNickname(){
-        return this.nickname
-    }
-    getScore(){
-        return this.score
-    }
-    getIsDead(){
-        return this.isDead
-    }
-    getIsBot(){
-        return this.isBot
-    }
-    setIsDead(isDead: boolean){
-        this.isDead = isDead
-    }
 
     private guess(aliveCount: number){
         if(aliveCount == 2){

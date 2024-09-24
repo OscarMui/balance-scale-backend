@@ -3,7 +3,7 @@ import {ChangeCountdown, GameEvent, Participant, ParticipantDisconnectedMidgame,
 import { EventEmitter } from 'node:events';
 import { v4 as uuidv4 } from 'uuid';
 import assert from '../common/assert';
-import { DEAD_LIMIT, DIGEST_TIME_MS, NETWORK_DELAY_MS, ROUND_TIME_MS, SHORTENED_TIME_AMEND_MS, SHORTENED_TIME_MS } from '../common/constants';
+import { DEAD_LIMIT, DIGEST_TIME_MS, NETWORK_DELAY_MS, ROUND_TIME_MS, SHORTENED_TIME_AMEND_MS, SHORTENED_TIME_MS,ParticipantStatus } from '../common/constants';
 import { sendMsg } from '../common/messaging';
 
 class Player implements Participant {
@@ -12,7 +12,6 @@ class Player implements Participant {
     private readonly nickname : string;
     private readonly isBot = false;
     private score = 0;
-    private isDead = false;
 
     constructor(ws: WebSocket,nickname: string){
         this.socket = ws
@@ -24,13 +23,12 @@ class Player implements Participant {
         roundStartTime: number, 
         handleClose: (ws: WebSocket) => void,
         addBroadcastGameEvent: (ge: GameEvent) => void,
-        getAliveCount: () => number,
+        total: number,
     ) : Promise<Object> => {
         return new Promise((resolve, reject) => {
             let myGuess : {id: string, guess: number} | undefined = undefined;
             let numDecided = 0; //number of players who guessed a number/ disconnected, if this number == aliveCount we will shorten the time 
             let numDisconnected = 0; //number of players disconnected
-            const aliveCount = getAliveCount() //get a local copy of aliveCount for some calculations below
             let hasShortenedCountdown = false;
             
             //this will be called when there are problems with the current connection
@@ -59,7 +57,6 @@ class Player implements Participant {
                     //no guess, need to inform all other participants, including those who died
                     addBroadcastGameEvent({
                         event: "participantDisconnectedMidgame",
-                        aliveCount: getAliveCount(),
                         id: this.id,
                     } as ParticipantDisconnectedMidgame);
                     emitter.emit("custom:participantDisconnectedMidgame",this.id,Date.now())
@@ -80,13 +77,7 @@ class Player implements Participant {
                 console.log("received: ",event.data.toString());
                 const eventTime = Date.now();
 
-                if(eventTime < roundStartTime){
-                    //update: in rare occasions messages might be sent during this time due to unstable network
-                    //TODO: clients should send the round number in when submitting the guesses
-                    //indicate a potential malicious client
-                    // errorWrapper();
-                    // return;
-                }
+                //TODO: clients should send the round number in when submitting the guesses
         
                 try{
                     const r = JSON.parse(event.data.toString()) as Req;
@@ -130,7 +121,7 @@ class Player implements Participant {
                 assert(!hasShortenedCountdown);
 
                 numDisconnected += 1;
-                if(numDisconnected === aliveCount - 1){ //only we are alive, resolve immediately
+                if(numDisconnected === total - 1){ //only we are alive, resolve immediately
                     if(myGuess){
                         successWrapper({
                             ...myGuess,
@@ -147,7 +138,7 @@ class Player implements Participant {
 
                 //disconnecting before making a first guess is considered as a form of decision
                 numDecided += 1;
-                if(numDecided === aliveCount){
+                if(numDecided === total){
                     changeCountdown(eventTime,"participantDisconnectedMidgame");
                 }
             }
@@ -155,7 +146,7 @@ class Player implements Participant {
             const onFirstDecision = (eventId : string, eventTime: number) => {
                 // console.log("onFirstDecision fired in ", this.id , eventTime)
                 numDecided += 1;
-                if(numDecided === aliveCount){
+                if(numDecided === total){
                     changeCountdown(eventTime,"allDecided");
                 }
             }
@@ -171,7 +162,7 @@ class Player implements Participant {
             let currentTimeout = setTimeout(()=>{
                 console.log("Round timeout fired")
                 
-                if(myGuess && numDecided == aliveCount){
+                if(myGuess && numDecided == total){
                     //if everyone made a decision and we guessed a number
                     successWrapper({
                         ...myGuess,
@@ -193,7 +184,7 @@ class Player implements Participant {
                 if(reason==="allDecided" && internalEndTime > internalOrigEndTime) return;
 
                 //For participantDisconnectedMidgame: also not to do anything if the original end time is later
-                if(reason==="participantDisconnectedMidgame" && internalEndTime < internalOrigEndTime) return;
+                if(reason==="participantDisconnectedMidgame" && internalEndTime < internalOrigEndTime && numDecided !== total) return;
                 
                 hasShortenedCountdown = true;
                 sendMsg(this.socket,{
@@ -221,7 +212,7 @@ class Player implements Participant {
             nickname: this.nickname,
             isBot: this.isBot,
             score: this.score,
-            isDead: this.isDead,
+            status: this.getStatus(),
         }
     };
 
@@ -230,10 +221,7 @@ class Player implements Participant {
         // dead if DEAD_LIMIT score or worse
         if(this.score <= DEAD_LIMIT){
             this.score = DEAD_LIMIT; //display -10 instead of -11 or sth
-            if(!this.isDead){
-                this.isDead = true;
-                return true
-            }
+            return true
         }
         return false
     };
@@ -246,23 +234,22 @@ class Player implements Participant {
         this.socket = ws;
     }
 
-    getId(){
-        return this.id
+    private isDisconnected(){
+        return !(this.getSocket().readyState===WebSocket.OPEN);
     }
-    getNickname(){
-        return this.nickname
+
+    private isDead(){
+        return this.score <= DEAD_LIMIT;
     }
-    getScore(){
-        return this.score
-    }
-    getIsDead(){
-        return this.isDead
-    }
-    getIsBot(){
-        return this.isBot
-    }
-    setIsDead(isDead: boolean){
-        this.isDead = isDead
+
+    private getStatus = () : ParticipantStatus => {
+        if(this.isDead()){
+            return ParticipantStatus.Dead;
+        }else if(this.isDisconnected()){
+            return ParticipantStatus.Disconnected;
+        }else{
+            return ParticipantStatus.Active;
+        }
     }
 
 }
