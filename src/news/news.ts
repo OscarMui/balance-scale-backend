@@ -16,7 +16,7 @@ const ANNOUNCEMENTS = [
     {
         "type": "server",
         "title": "New Update!",
-        "body": "Thank you for all your support, our game has recently reached 1000+ downloads.\n\nThis update brings you with new features fundamental to a smooth game experience, including\n1. the ability to reconnect in the middle of the game\n2. the ability to view the scores of players after the match\n3. the ability to view the player list at the start of the match \n4. The announcement system that you are reading right now\n5. small UI improvements\n\nAs you may know, hosting the server requires quite some money, I have decided to add a small amount of ads in the game. Thank you for your understanding.\n\nMy next goal is to work on major UI improvements, stayed tuned.",
+        "body": "Thank you for all your support, our game has recently reached 1000+ downloads.\n\nThis update brings you with new features fundamental to a smooth game experience, including\n1. the ability to reconnect in the middle of the game\n2. the ability to view the scores of players after the match\n3. the ability to view the player list at the start of the match \n4. the announcement system that you are reading right now\n5. small UI improvements\n\nAs you may know, hosting the server requires quite some money, I have decided to add a small amount of ads in the game. Thank you for your understanding.\n\nMy next goal is to work on major UI improvements, stayed tuned.",
         "showTo": new Date(2024,10-1,20,0,0,0), 
     } as ServerAnnouncement,
     {
