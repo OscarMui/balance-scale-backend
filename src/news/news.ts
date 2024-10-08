@@ -10,19 +10,19 @@ const ANNOUNCEMENTS = [
     {
         "shortCode": "discord-gaming-session",
         "type": "client",
-        "eventTime": new Date(2024,10-1,8,12,0,0).getTime(), //8 Oct 2024 1PM BST,
-        "showTo": new Date(2024,10-1,8,12,30,0), //8 Oct 2024 1:30PM BST,
-    } as ClientAnnouncement,
-    {
-        "shortCode": "discord-gaming-session",
-        "type": "client",
         "eventTime": new Date(2024,10-1,10,15,0,0).getTime(), //10 Oct 2024 4PM BST,
         "showTo": new Date(2024,10-1,10,15,30,0), //10 Oct 2024 4PM BST,
     } as ClientAnnouncement,
     {
         "type": "server",
-        "title": "This is a test title",
-        "body": "This is a test body",
+        "title": "New Update!",
+        "body": "Thank you for all your support, our game has recently reached 1000+ downloads.\n\nThis update brings you with new features fundamental to a smooth game experience, including\n1. the ability to reconnect in the middle of the game\n2. the ability to view the scores of players after the match\n3. the ability to view the player list at the start of the match \n4. The announcement system that you are reading right now\n5. small UI improvements\n\nAs you may know, hosting the server requires quite some money, I have decided to add a small amount of ads in the game. Thank you for your understanding.\n\nMy next goal is to work on major UI improvements, stayed tuned.",
+        "showTo": new Date(2024,10-1,20,0,0,0), 
+    } as ServerAnnouncement,
+    {
+        "type": "server",
+        "title": "This is a test title 2",
+        "body": "This is a test body 2",
         "showTo": new Date(2024,10-1,10,15,30,0), //10 Oct 2024 4PM BST,
     } as ServerAnnouncement,
 ] as Announcement[]
