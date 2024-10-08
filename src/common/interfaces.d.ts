@@ -100,14 +100,25 @@ export interface Tip {
     showTo?: Date,
 }
 
-export interface Announcement {
+export interface ServerAnnouncement extends Announcement{
+    type: "server",
+    title: string,
+    body: string,
+}
+
+export interface ClientAnnouncement extends Announcement {
     shortCode: string,
+    type: "client",
+}
+
+export interface Announcement {
     type: "client"|"server",
-    title?: string,
-    body?: string,
-    countdownTo?: Date,
     showFrom?: Date,
     showTo?: Date,
+    shortCode?: string,
+    eventTime?: number,
+    title?: string,
+    body?: string,
 }
 
 export interface Statistic {

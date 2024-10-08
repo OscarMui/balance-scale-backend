@@ -1,4 +1,4 @@
-import { Announcement, Tip } from "../common/interfaces";
+import { Announcement, ClientAnnouncement, ServerAnnouncement, Tip } from "../common/interfaces";
 
 const ANNOUNCEMENTS = [
     // {
@@ -7,18 +7,30 @@ const ANNOUNCEMENTS = [
     // {
     //     "announcement": "google-play-launch",
     // },
-    // {
-    //     "announcement": "testflight-launch",
-    // },
-    // {
-    //     "announcement": "on-the-hour",
-    // },
+    {
+        "shortCode": "discord-gaming-session",
+        "type": "client",
+        "eventTime": new Date(2024,10-1,8,12,0,0).getTime(), //8 Oct 2024 1PM BST,
+        "showTo": new Date(2024,10-1,8,12,30,0), //8 Oct 2024 1:30PM BST,
+    } as ClientAnnouncement,
+    {
+        "shortCode": "discord-gaming-session",
+        "type": "client",
+        "eventTime": new Date(2024,10-1,10,15,0,0).getTime(), //10 Oct 2024 4PM BST,
+        "showTo": new Date(2024,10-1,10,15,30,0), //10 Oct 2024 4PM BST,
+    } as ClientAnnouncement,
+    {
+        "type": "server",
+        "title": "This is a test title",
+        "body": "This is a test body",
+        "showTo": new Date(2024,10-1,10,15,30,0), //10 Oct 2024 4PM BST,
+    } as ServerAnnouncement,
 ] as Announcement[]
 
 const TIPS = [
-    {
-        "message": "Tenbin is now available on iOS! Share the game with your friends with an iPhone! App Store link is on the home page.",
-    },
+    // {
+    //     "message": "Tenbin is now available on iOS! Share the game with your friends with an iPhone! App Store link is on the home page.",
+    // },
     {
         "message": "Want to play with others on the internet? Join our Discord server! The link is on the home page.",
     },
