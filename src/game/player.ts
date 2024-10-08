@@ -8,6 +8,7 @@ import { sendMsg } from '../common/messaging';
 
 class Player implements Participant {
     private readonly id = uuidv4()
+    private readonly rKey = uuidv4()
     private socket : WebSocket;
     private readonly nickname : string;
     private readonly isBot = false;
@@ -232,6 +233,10 @@ class Player implements Participant {
 
     setSocket(ws: WebSocket){
         this.socket = ws;
+    }
+
+    getRKey(){
+        return this.rKey;
     }
 
     private isDisconnected(){

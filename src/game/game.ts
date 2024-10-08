@@ -57,13 +57,16 @@ class Game {
     // requirements: disconnected but not dead, and at least 3 points away from dying
     getCanReconnectParticipants = () => this.participants.filter((p)=>p.getInfo().status===ParticipantStatus.Disconnected && p.getInfo().score > DEAD_LIMIT+2);
 
-    reconnectParticipantByPid = (pid: string, ws: WebSocket) => {
-        const p = this.participants.filter((p) => p.getInfo().id===pid)[0];
+    reconnectParticipantByPid = (pid: string, rKey: string, ws: WebSocket) => {
+        const ps = this.participants.filter((p) => p.getInfo().id===pid && p.getRKey() == rKey);
+        if(ps.length == 0) return false;
+        const p = ps[0];
         p.setSocket(ws);
         this.justReconnectedParticipants.push({
             id: pid,
             reason: "reconnected",
         });
+        return true;
     }
     
     private populateWithBots(){

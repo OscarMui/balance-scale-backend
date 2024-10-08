@@ -63,6 +63,10 @@ class Bot implements Participant {
         return null
     };
 
+    getRKey(){
+        return ""
+    }
+
     setSocket(ws: WebSocket){}
 
     private guess(aliveCount: number){

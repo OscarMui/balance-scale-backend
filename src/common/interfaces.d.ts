@@ -23,6 +23,7 @@ export interface Participant {
     changeScore: (delta: number) => boolean,
     getSocket: () => WebSocket | null,
     setSocket: (ws: WebSocket) => void,
+    getRKey: () => string
     // socket: WebSocket,
 }
 

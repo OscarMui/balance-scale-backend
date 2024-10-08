@@ -90,22 +90,33 @@ class Socket {
                         result: "success",
                         participantsCount: this.games[0].getParticipantsCount()+1,
                         participantsPerGame: PARTICIPANTS_PER_GAME,
-                        id: p.getInfo().id
+                        id: p.getInfo().id,
+                        rKey: p.getRKey(),
                     });
 
                     this.games[0].addPlayer(p)
                 }else{
                     assert(req.method=="reconnectGame")
                     const pid = req.pid;
+                    const rKey = req.rKey;
 
-                    this.getGameFromPid(pid).reconnectParticipantByPid(pid,ws);
-
-                    sendMsg(ws,{
-                        result: "success",
-                        participantsCount: this.games[0].getParticipantsCount(),
-                        participantsPerGame: PARTICIPANTS_PER_GAME,
-                        id: pid,
-                    });
+                    const result = this.getGameFromPid(pid).reconnectParticipantByPid(pid,rKey,ws);
+                    
+                    if(result){
+                        sendMsg(ws,{
+                            result: "success",
+                            participantsCount: this.games[0].getParticipantsCount(),
+                            participantsPerGame: PARTICIPANTS_PER_GAME,
+                            id: pid,
+                            rKey: rKey,
+                        });
+                    }else{
+                        sendMsg(ws,{
+                            result: "error",
+                            errorMsg: "Incorrect reconnection credentials.",
+                        });
+                    }
+                    
                     
                 }
             }catch(e){
